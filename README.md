@@ -1,91 +1,102 @@
 # Better Attack Orders for Simple Sidearms
 
-**Status: BUILT and machine-verified 2026-08-18** — single Harmony postfix on
-`FloatMenuUtility.GetRangedAttackAction`, green end-to-end pass on a
-vanilla-only modlist (see TESTPLAN.md). Remaining: owner feel-pass, upstream
-issue filing (draft in `docs/UPSTREAM_ISSUE.md`), demo GIF, publish.
+[![Latest Release](https://img.shields.io/github/v/release/eebette/Better-Attack-Orders-for-Simple-Sidearms?label=Latest%20Release)](https://github.com/eebette/Better-Attack-Orders-for-Simple-Sidearms/releases)
+<!-- Steam Workshop badge goes here at publish -->
 
-## Objective
+Your pawn is holding a revolver and carrying a sniper rifle — this mod makes the
+attack order understand that.
 
-Fix a vanilla Simple Sidearms deadlock: SS's only in-combat weapon-swap trigger
-runs during aim warmup, which requires an attack job *with the currently equipped
-weapon* — so a pawn holding a shotgun with a sniper rifle in inventory **cannot
-even be ordered** to attack a distant target. The float menu says "Out of range"
-(computed against the equipped weapon), no job forms, no warmup happens, the swap
-logic never runs. The player must manually switch via the SS gizmo first.
+<!-- DEMO GIF: out-of-range order swaps to the rifle and fires (Media/, at publish) -->
 
-Fix: when building/validating a ranged attack order, consider **all carried
-weapons**; if the order is only satisfiable by a different carried weapon, swap
-(via SS's own preference machinery) before the attack job starts.
+- [Features](#features)
+- [Development](#development)
+- [Building](#building)
+- [Testing](#testing)
+- [Thanks](#thanks)
+- [License](#license)
 
-**Mechanism settled (owner, 2026-08-18): SINGLE-OPTION repair.** The existing
-"Fire at X" order simply appears where it used to be missing and auto-swaps to
-the capable weapon via SS's own selection — NO per-weapon "attack with <weapon>"
-float-menu entries (new UI surface, a convention SS never uses; fails the
-ownership test). The name stays "Better Attack Orders" because the player-visible
-outcome is the existing order working, not a new order type. Explicit per-weapon
-entries remain a possible later opt-in ADDITION if feel-testing shows auto-pick
-choosing wrong.
+NOTE: This mod stores nothing in your save — safe to add or remove at any time.
 
-## Scope and provenance
+## Features
 
-- Descoped 2026-08-18 from the CE+SS suite's Tactics module by the owner's seam
-  test: the deadlock exists in **pure vanilla SS** — no Combat Extended
-  involvement — so it is a standalone SS fix, not suite scope. History and the
-  original spec live in the Tactics repo's README (feature 2).
-- **Upstream first**: file a single-topic issue on
-  https://github.com/PeteTimesSix/SimpleSidearms with the repro before/alongside
-  building (SS is in maintenance mode; expect no reply, but intent goes on
-  record). If SS ever fixes it upstream, this mod retires.
-- Discovered during CE playtesting of the suite (CE's larger range spreads make
-  the deadlock constant), but the fix itself must not reference CE.
+**The fix**
 
-## Design constraints
+- Vanilla validates ranged attack orders against the *equipped* weapon only: a
+  pawn with a short-range weapon in hand and a longer-ranged sidearm in
+  inventory gets "Cannot fire: out of range" — and because no attack job can
+  form, Simple Sidearms' auto-switch (which only runs during aim warmup) never
+  gets its chance. The order is deadlocked.
+- With this mod, the fire order considers **every weapon the pawn carries**. If
+  only a carried sidearm can reach the target, issuing the order swaps to it
+  and fires. No new buttons, no settings — the existing order just works.
 
-- Dependencies: **Harmony + Simple Sidearms only.** No CE, no suite mods.
-- Free composition, zero coupling: the fix calls SS's own
-  `GettersFilters.findBestRangedWeapon(pawn, target)` — when the CE+SS suite is
-  installed, the core patch's Harmony patches make that call CE-aware (ammo,
-  CE DPS) automatically. Do not special-case CE here.
-- Swap only on an explicit player attack order — this changes when a pawn *can be
-  ordered*, never who it targets (no target choice, no autonomous behavior).
-- Respect SS state: forced-weapon settings, skip flags (manual-use/EMP/dangerous
-  filtering) via SS's own selection call — never reimplement its filters.
-- Licensing: SS has NO published license — behavioral reference only, never copy
-  its code. This mod is MIT.
+**Guardrails**
 
-## Technical context
+- Weapon choice goes through Simple Sidearms' own selection: forced-weapon
+  settings and its skip filters (manual-use / EMP / dangerous) are respected.
+- Only the exact broken case is rescued — a *drafted* pawn whose *equipped*
+  weapon can't hit. Every other refusal (not drafted, incapable of violence,
+  nothing reaches) stands untouched.
 
-- SS internals: `GettersFilters.findBestRangedWeapon` (nullable target, returns
-  `(weapon, dps, averageSpeed)` tuple), `WeaponAssingment` equip helpers,
-  `CompSidearmMemory`. Source: https://github.com/PeteTimesSix/SimpleSidearms
-  (1.6 branch `v1.6/`).
-- **Main unknown (research first): RimWorld 1.6 float-menu architecture.** 1.6
-  reworked float menus into option-provider classes — find where the ranged
-  attack option's range validation lives (vanilla `FloatMenuOptionProvider` for
-  drafted attack orders) before choosing the patch point. The patch likely
-  either relaxes the range check to "any carried weapon reaches" and prepends a
-  swap to the order's job chain, or adds a parallel option ("attack with
-  <weapon>").
-- Also cover the direct right-click-attack path used when the option is chosen,
-  and keyboard/queued orders if they route differently.
+**Combat Extended**
 
-## Build
+- No CE dependency; works identically with or without it. With the
+  [CE+SS Compatibility Patch](https://github.com/eebette/CombatExtended-SimpleSidearms-Compatibility-Patch)
+  installed, weapon choice automatically becomes CE-aware (ammo state, CE
+  ballistics) — zero configuration, zero coupling.
 
-Same pattern as the suite repos (SDK net48, `Krafs.Rimworld.Ref 1.6.*`,
-`Lib.Harmony 2.3.3` ExcludeAssets=runtime, `Krafs.Publicizer` over the local
-workshop DLL `~/.local/share/Steam/steamapps/workshop/content/294100/927155256/v1.6/Assemblies/SimpleSidearms.dll`).
-No CI (workshop-local refs, unlicensed upstream). Committed DLL in `Assemblies/`
-at release, per the suite's RELEASING.md conventions.
+## Development
+
+The deadlock exists in pure vanilla Simple Sidearms; this mod is a standalone
+interim fix and retires if it ever lands upstream (single-topic issue draft:
+[`docs/UPSTREAM_ISSUE.md`](docs/UPSTREAM_ISSUE.md)). Implementation is one
+Harmony postfix on `FloatMenuUtility.GetRangedAttackAction`; design decisions
+and provenance live in [`docs/DESIGN.md`](docs/DESIGN.md). Simple Sidearms is a
+build-time reference only — it ships no license, so no SS code is copied or
+redistributed.
+
+Releases are manual local builds with the DLL committed in `Assemblies/` — the
+compile reference lives in the local Steam Workshop folder, so CI cannot build
+this repo. Release checklist: [`RELEASING.md`](RELEASING.md).
+
+## Building
+
+Requires the .NET SDK and a Steam Workshop subscription to Simple Sidearms:
+
+```bash
+dotnet build Source/BetterAttackOrders/BetterAttackOrders.csproj -c Release
+```
+
+References the workshop DLL at
+`~/.local/share/Steam/steamapps/workshop/content/294100/927155256/` (override
+with `-p:RimWorldWorkshopDir=...`), compiles against
+[Krafs.Rimworld.Ref](https://www.nuget.org/packages/Krafs.Rimworld.Ref) 1.6,
+and uses [Krafs.Publicizer](https://github.com/krafs/Publicizer) for Simple
+Sidearms internals. Output lands in `Assemblies/`.
 
 ## Testing
 
-Reuse the suite's harness pattern (CLI-arg-gated staging GameComponent +
-assert runner writing JSON; see the compat patch repo's `test/`). Scenario:
-pawn with short-range primary + long-range sidearm, target beyond primary's
-range but within sidearm's; assert the order is issuable and the pawn swaps and
-fires. Must ALSO pass with vanilla-only modlist (Harmony + SS + this) — that's
-the point.
+Automated end-to-end tests run in this repo's own **vanilla-only profile**
+(Core + Harmony + Simple Sidearms + this mod — no Combat Extended, which is the
+point):
 
-- packageId: `eebette.BetterAttackOrders`
-- RimWorld 1.6. MIT license.
+```bash
+./test/run-bao-stage.sh     # build + stage the deadlock save; quit after the letter
+./test/run-bao-assert.sh    # load it, assert the fix, write test-results-bao1.json
+```
+
+The runner constructs the deadlock (revolver equipped, bolt-action carried,
+target parked between the two ranges), verifies the order exists where vanilla
+returns null, and confirms the swap-and-attack. Details and recorded passes:
+[`TESTPLAN.md`](TESTPLAN.md).
+
+## Thanks
+
+- **PeteTimesSix** for [Simple Sidearms](https://github.com/PeteTimesSix/SimpleSidearms).
+- The **Combat Extended team** — this fix was found while building the
+  [CE+SS compatibility suite](https://github.com/eebette/CombatExtended-SimpleSidearms-Compatibility-Patch),
+  where CE's larger range spreads make the deadlock constant.
+
+## License
+
+This mod's code is [MIT](LICENSE).
