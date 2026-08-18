@@ -4,14 +4,15 @@ set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 RIMWORLD="$HOME/.local/share/Steam/steamapps/common/RimWorld/RimWorldLinux"
 SAVEDATA="$REPO/test/SaveData"
-RESULT="$SAVEDATA/test-results-bao1.json"
+SCENARIO="${1:-bao1}"
+RESULT="$SAVEDATA/test-results-$SCENARIO.json"
 if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
     dotnet build "$REPO/Source/BetterAttackOrders/BetterAttackOrders.csproj" -c Release
     dotnet build "$REPO/test/StagingMod/Source/BAOTestStaging.csproj" -c Release
 fi
 rm -f "$RESULT"
 timeout --signal=TERM 15m "$RIMWORLD" -savedatafolder="$SAVEDATA" \
-    "-celoadsave=BAO-1-attack-order" "-ceassert=bao1" || true
+    "-celoadsave=BAO-1-attack-order" "-ceassert=$SCENARIO" || true
 if [[ -f "$RESULT" ]]; then
     echo "== results =="; cat "$RESULT"
 else

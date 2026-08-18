@@ -146,6 +146,7 @@ namespace BAOTestStaging
         private bool done;
         private int startTick;
         private int phase;
+        private string scenario;
         private Pawn rangey;
         private Pawn raider;
         private Action orderAction;
@@ -158,7 +159,7 @@ namespace BAOTestStaging
 
         public override void LoadedGame()
         {
-            if (!GenCommandLine.TryGetCommandLineArg("ceassert", out string scenario)
+            if (!GenCommandLine.TryGetCommandLineArg("ceassert", out scenario)
                 || scenario.NullOrEmpty() || !scenario.StartsWith("bao"))
             {
                 return;
@@ -178,7 +179,7 @@ namespace BAOTestStaging
                 active = true;
                 startTick = Find.TickManager.TicksGame;
                 Find.TickManager.CurTimeSpeed = TimeSpeed.Superfast;
-                Log.Message("[BAOTest] bao1 started.");
+                Log.Message($"[BAOTest] {scenario} started.");
             });
         }
 
@@ -210,6 +211,12 @@ namespace BAOTestStaging
             }
             if (tick % 30 != 0)
             {
+                return;
+            }
+
+            if (scenario == "bao2")
+            {
+                TickBao2(tick);
                 return;
             }
 
@@ -291,16 +298,146 @@ namespace BAOTestStaging
             }
         }
 
+        /// <summary>Normalize: revolver equipped, rifle carried, raider parked
+        /// between the two ranges. Returns false (and finishes) on setup failure.</summary>
+        private IntVec3 parkCell = IntVec3.Invalid;
+
+        private bool ConstructDeadlock(out float rifleRange, bool parkAtRifleEdge = false)
+        {
+            rifleRange = 0f;
+            ThingWithComps Find(string defName) =>
+                rangey.GetCarriedWeapons(includeEquipped: true, includeTools: true)
+                    .FirstOrDefault(t => t.def.defName == defName);
+            ThingWithComps revolver = Find("Gun_Revolver");
+            ThingWithComps rifle = Find("Gun_BoltActionRifle");
+            if (revolver == null || rifle == null)
+            {
+                Check("setup", false, $"weapons missing: revolver={(revolver != null)} rifle={(rifle != null)}");
+                return false;
+            }
+            if (rangey.equipment.Primary != revolver)
+            {
+                PeteTimesSix.SimpleSidearms.Utilities.WeaponAssingment
+                    .equipSpecificWeaponFromInventory(rangey, revolver, dropCurrent: false, intentionalDrop: false);
+            }
+            // SS swaps to its PREFERRED ranged weapon on draft (BySkill would pick the
+            // rifle and dissolve the deadlock) — make the revolver the stated
+            // preference so the deadlock survives drafting, exactly like a player
+            // who set their short gun as default.
+            CompSidearmMemory memory = CompSidearmMemory.GetMemoryCompForPawn(rangey);
+            memory.primaryWeaponMode = PeteTimesSix.SimpleSidearms.Utilities.Enums.PrimaryWeaponMode.Ranged;
+            memory.SetRangedWeaponTypeAsDefault(revolver.toThingDefStuffDefPair());
+            float equippedRange = rangey.equipment.PrimaryEq?.PrimaryVerb?.verbProps?.range ?? 0f;
+            rifleRange = rifle.def.Verbs?.FirstOrDefault()?.range ?? 0f;
+            // parkAtRifleEdge: idle scenarios park deep — the raider charges, and if
+            // he ever dips inside the equipped weapon's range, vanilla auto-attack
+            // starts a warmup and SS's OWN warmup auto-switch fires (it swapped the
+            // rifle in during an early run and contaminated the negative control).
+            int park = parkAtRifleEdge
+                ? (int)(rifleRange - 3f)
+                : (int)Math.Min(equippedRange + 3f, rifleRange - 2f);
+            if (park < 5 || park <= equippedRange)
+            {
+                Check("setup", false, $"degenerate ranges: equipped={equippedRange:F1} rifle={rifleRange:F1} park={park}");
+                return false;
+            }
+            IntVec3 cell = (rangey.Position + new IntVec3(park, 0, 0)).ClampInsideMap(rangey.Map);
+            if (!cell.Standable(rangey.Map))
+            {
+                CellFinder.TryFindRandomCellNear(cell, rangey.Map, 8, c => c.Standable(rangey.Map), out cell);
+            }
+            parkCell = cell;
+            raider.Position = cell;
+            raider.Notify_Teleported();
+            return true;
+        }
+
+        /// <summary>The raider melee-charges (assault lord); shove him back to his
+        /// post whenever he strays so he can never enter the equipped weapon's range.</summary>
+        private void KeepRaiderParked()
+        {
+            if (raider == null || raider.Dead || raider.Downed || !parkCell.IsValid)
+            {
+                return;
+            }
+            if (raider.Position.DistanceTo(parkCell) > 2f)
+            {
+                raider.Position = parkCell;
+                raider.Notify_Teleported();
+            }
+        }
+
+        private void TickBao2(int tick)
+        {
+            if (phase == 0)
+            {
+                // Negative control: toggle OFF, drafted, no order — must stay idle
+                // on the revolver.
+                BetterAttackOrders.BAOMod.Settings.autoSwitchWhenIdle = false;
+                if (!ConstructDeadlock(out _, parkAtRifleEdge: true))
+                {
+                    Finish();
+                    return;
+                }
+                rangey.drafter.Drafted = true;
+                Check("post-setup-state", true,
+                    $"equipped={rangey.equipment.Primary?.def?.defName} mode={CompSidearmMemory.GetMemoryCompForPawn(rangey).primaryWeaponMode} default={CompSidearmMemory.GetMemoryCompForPawn(rangey).DefaultRangedWeapon?.thing?.defName}");
+                phase = 1;
+                startTick = tick;
+                return;
+            }
+            if (phase == 1)
+            {
+                KeepRaiderParked();
+                bool swapped = rangey.equipment.Primary?.def?.defName == "Gun_BoltActionRifle";
+                bool attacking = rangey.CurJobDef == JobDefOf.AttackStatic || rangey.stances.curStance is Stance_Warmup;
+                if (swapped || attacking)
+                {
+                    Check("off-stays-idle", false,
+                        $"acted with toggle OFF: primary={rangey.equipment.Primary?.def?.defName} job={rangey.CurJobDef?.defName} patchSwaps={BetterAttackOrders.JobDriver_Wait_CheckForAutoAttack_Patch.SwapCount} toggle={BetterAttackOrders.BAOMod.Settings.autoSwitchWhenIdle}");
+                    Finish();
+                    return;
+                }
+                if (tick - startTick > 1800)
+                {
+                    Check("off-stays-idle", true, $"held revolver, idle for 1800 ticks");
+                    BetterAttackOrders.BAOMod.Settings.autoSwitchWhenIdle = true;
+                    phase = 2;
+                    startTick = tick;
+                }
+                return;
+            }
+            if (phase == 2)
+            {
+                KeepRaiderParked();
+                bool swapped = rangey.equipment.Primary?.def?.defName == "Gun_BoltActionRifle";
+                bool engaging = rangey.stances.curStance is Stance_Warmup
+                                || rangey.CurJobDef == JobDefOf.AttackStatic
+                                || (raider.Dead || raider.Downed);
+                if (swapped && engaging)
+                {
+                    Check("on-swaps-and-engages", true, $"primary={rangey.equipment.Primary?.def?.defName} stance={rangey.stances.curStance?.GetType().Name} raiderDead={raider.Dead}");
+                    Finish();
+                    return;
+                }
+                if (tick - startTick > 4000)
+                {
+                    Check("on-swaps-and-engages", false, $"primary={rangey.equipment.Primary?.def?.defName} stance={rangey.stances.curStance?.GetType().Name} job={rangey.CurJobDef?.defName}");
+                    Finish();
+                }
+            }
+        }
+
         private void Finish()
         {
             done = true;
             var sb = new StringBuilder();
-            sb.Append("{\n  \"scenario\": \"bao1\",\n");
+            sb.Append($"{{\n  \"scenario\": \"{scenario}\",\n");
             sb.Append($"  \"passed\": {(!failed ? "true" : "false")},\n");
             sb.Append("  \"checks\": [\n    ");
             sb.Append(string.Join(",\n    ", results));
             sb.Append("\n  ]\n}\n");
-            string path = Path.Combine(GenFilePaths.SaveDataFolderPath, "test-results-bao1.json");
+            string path = Path.Combine(GenFilePaths.SaveDataFolderPath, $"test-results-{scenario}.json");
             File.WriteAllText(path, sb.ToString());
             Log.Message("[BAOTest] Results written; shutting down.");
             Root.Shutdown();

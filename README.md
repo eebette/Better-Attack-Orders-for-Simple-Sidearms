@@ -30,6 +30,17 @@ NOTE: This mod stores nothing in your save — safe to add or remove at any time
   only a carried sidearm can reach the target, issuing the order swaps to it
   and fires. No new buttons, no settings — the existing order just works.
 
+**Idle auto-switch** *(toggleable, on by default)*
+
+- The autonomous sibling of the order fix: a drafted pawn standing guard
+  auto-attacks only what its *equipped* weapon can reach — same blindness, no
+  right-click involved. With this on, a pawn with nothing in range of the
+  equipped weapon draws a carried weapon that CAN reach a target, then engages
+  normally.
+- Pure idle rescue: never runs while anything is already in equipped range,
+  never touches pawns with a forced weapon, respects hold fire, drafted pawns
+  only — undrafted colonist AI is untouched.
+
 **Guardrails**
 
 - Weapon choice goes through Simple Sidearms' own selection: forced-weapon
