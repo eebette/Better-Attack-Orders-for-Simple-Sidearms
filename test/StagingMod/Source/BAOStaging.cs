@@ -222,6 +222,11 @@ namespace BAOTestStaging
 
             if (phase == 0)
             {
+                // bao1 tests the ORDER fix in isolation — the v1.1 idle auto-switch
+                // (default ON) otherwise fires the instant the pawn is drafted (the
+                // Wait job's init runs CheckForAutoAttack) and dissolves the deadlock
+                // before the order path is ever exercised.
+                BetterAttackOrders.BAOMod.Settings.autoSwitchWhenIdle = false;
                 // CONSTRUCT the precondition instead of assuming it (SS's own logic may
                 // have re-equipped the rifle on load): revolver in hand, rifle in
                 // inventory, raider parked between the two ranges (computed at runtime —
@@ -269,6 +274,33 @@ namespace BAOTestStaging
                 orderAction = FloatMenuUtility.GetRangedAttackAction(rangey, new LocalTargetInfo(raider), out string failStr);
                 Check("order-available-with-patch", orderAction != null,
                     $"action={(orderAction != null ? "present" : "NULL")} failStr='{failStr}'");
+
+                // Label annotation: rescued option must name the weapon; a non-rescued
+                // (in-range) option must keep the untouched vanilla label.
+                var options = RimWorld.FloatMenuMakerMap.GetOptions(
+                    new List<Pawn> { rangey }, raider.DrawPos, out _);
+                string fireLabel = options.FirstOrDefault(o =>
+                    o?.Label != null && o.Label.StartsWith("FireAt".Translate(raider.Label, raider)))?.Label;
+                bool annotated = fireLabel != null && fireLabel.Contains("using")
+                                 && fireLabel.ToLowerInvariant().Contains("bolt-action");
+                Check("rescued-label-names-weapon", annotated, $"label='{fireLabel ?? "none"}'");
+
+                IntVec3 closeCell = (rangey.Position + new IntVec3(8, 0, 0)).ClampInsideMap(rangey.Map);
+                if (!closeCell.Standable(rangey.Map))
+                {
+                    CellFinder.TryFindRandomCellNear(closeCell, rangey.Map, 6, c => c.Standable(rangey.Map), out closeCell);
+                }
+                IntVec3 farCell = raider.Position;
+                raider.Position = closeCell;
+                raider.Notify_Teleported();
+                var closeOptions = RimWorld.FloatMenuMakerMap.GetOptions(
+                    new List<Pawn> { rangey }, raider.DrawPos, out _);
+                string closeLabel = closeOptions.FirstOrDefault(o =>
+                    o?.Label != null && o.Label.StartsWith("FireAt".Translate(raider.Label, raider)))?.Label;
+                bool vanillaClean = closeLabel != null && !closeLabel.Contains("using");
+                Check("in-range-label-untouched", vanillaClean, $"label='{closeLabel ?? "none"}'");
+                raider.Position = farCell;
+                raider.Notify_Teleported();
                 if (orderAction == null)
                 {
                     Finish();

@@ -28,7 +28,11 @@ NOTE: This mod stores nothing in your save — safe to add or remove at any time
   gets its chance. The order is deadlocked.
 - With this mod, the fire order considers **every weapon the pawn carries**. If
   only a carried sidearm can reach the target, issuing the order swaps to it
-  and fires. No new buttons, no settings — the existing order just works.
+  and fires. No new buttons — the existing order just works.
+- Honest labeling: the rescued order reads **"Fire at X (using bolt-action
+  rifle)"** — you see which gun comes out before you click. Orders that work
+  vanilla keep their untouched vanilla label; the annotation appears exactly
+  and only where vanilla offered nothing at all.
 
 **Idle auto-switch** *(toggleable, on by default)*
 

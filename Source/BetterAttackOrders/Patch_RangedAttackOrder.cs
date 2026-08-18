@@ -44,24 +44,10 @@ namespace BetterAttackOrders
             {
                 return;
             }
-            if (pawn.equipment == null || pawn.inventory == null || !pawn.IsValidSidearmsCarrierRightNow())
-            {
-                return;
-            }
             // Rescue ONLY the failure this mod fixes: a drafted pawn whose EQUIPPED
             // weapon can't hit the target. Every other vanilla refusal (not drafted,
             // downed, incapable of violence, ...) must stand untouched.
-            if (!pawn.Drafted)
-            {
-                return;
-            }
-            Verb equippedVerb = pawn.equipment.PrimaryEq?.PrimaryVerb;
-            if (equippedVerb != null && equippedVerb.CanHitTarget(target))
-            {
-                return; // equipped weapon works — vanilla failed for some other reason
-            }
-            ThingWithComps winner = FindReachingWeapon(pawn, target);
-            if (winner == null)
+            if (!RescueLogic.WouldRescue(pawn, target, out ThingWithComps winner))
             {
                 return;
             }
@@ -74,13 +60,38 @@ namespace BetterAttackOrders
                 pawn.jobs.TryTakeOrderedJob(job, JobTag.Misc);
             };
         }
+    }
+
+    /// <summary>Shared between the action patch and the label patch so the two can
+    /// never disagree about when a rescue happens or which weapon it uses.</summary>
+    public static class RescueLogic
+    {
+        /// <summary>True when this order would be OUR rescued order: drafted pawn,
+        /// equipped weapon can't hit, and a carried weapon can. Outputs the weapon.</summary>
+        public static bool WouldRescue(Pawn pawn, LocalTargetInfo target, out ThingWithComps winner)
+        {
+            winner = null;
+            if (pawn == null || !target.IsValid || !pawn.Drafted
+                || pawn.equipment == null || pawn.inventory == null
+                || !pawn.IsValidSidearmsCarrierRightNow())
+            {
+                return false;
+            }
+            Verb equippedVerb = pawn.equipment.PrimaryEq?.PrimaryVerb;
+            if (equippedVerb != null && equippedVerb.CanHitTarget(target))
+            {
+                return false;
+            }
+            winner = FindReachingWeapon(pawn, target);
+            return winner != null;
+        }
 
         /// <summary>
         /// The carried weapon SS itself would pick for this target, provided it can
         /// actually reach from the pawn's current position. Falls back to the
         /// longest-reaching eligible carried weapon when SS's pick can't reach.
         /// </summary>
-        private static ThingWithComps FindReachingWeapon(Pawn pawn, LocalTargetInfo target)
+        public static ThingWithComps FindReachingWeapon(Pawn pawn, LocalTargetInfo target)
         {
             float distance = target.Cell.DistanceTo(pawn.Position);
 

@@ -32,6 +32,14 @@ target at the rifle's edge → pawn must hold the revolver and stay idle for 180
 ticks (negative control); toggle ON → pawn swaps to the rifle unprompted and
 enters warmup on the target.
 
+Label annotation (added with the label patch): bao1 also asserts the rescued
+option reads "Fire at X (using bolt-action rifle)" AND that an in-range order's
+label stays pristine vanilla. Isolation note: bao1 disables the idle
+auto-switch during setup — otherwise v1.1 fires on the draft tick itself (the
+Wait job's init runs CheckForAutoAttack) and legitimately dissolves the
+deadlock before the order path is exercised. That interference was v1.1
+working as designed, caught by the label assertions.
+
 Two scenario contaminations the harness surfaced (and the fixes):
 - SS itself swaps weapons around drafting — its AutoUndrafter postfix re-equips
   by preference every 100 ticks on Wait_Combat, and its warmup auto-switch fires
