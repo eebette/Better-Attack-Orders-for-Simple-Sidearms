@@ -1,0 +1,15 @@
+[i][DEMO GIF SLOT — out-of-range order swaps to the rifle and fires][/i]
+
+Fixes a [b]Simple Sidearms[/b] deadlock: a pawn carrying a longer-ranged sidearm cannot even be ORDERED to attack a distant target. The fire order is validated against the equipped weapon only ("Out of range"), no attack job forms, and Simple Sidearms' auto-switch never gets its chance — the swap logic only runs during aim warmup, which needs the very job that can't start.
+
+With this mod the fire order considers [b]every weapon the pawn carries[/b]. If only a carried sidearm can reach, ordering the attack swaps to it (using Simple Sidearms' own weapon selection — forced weapons and skip filters respected) and fires. No new buttons, no settings: the existing order just works.
+
+[h1]Details[/h1]
+[list]
+[*]Only rescues the exact broken case: a drafted pawn whose equipped weapon can't hit. Every other refusal (not drafted, incapable, no line of sight for anything) stands untouched.
+[*]Works with or without Combat Extended. With the [url=https://github.com/eebette/CombatExtended-SimpleSidearms-Compatibility-Patch]CE+SS Compatibility Patch[/url] installed, weapon choice automatically becomes CE-aware (ammo, CE ballistics) — zero configuration.
+[*]Stores nothing in your save: add or remove any time.
+[/list]
+
+[h1]Links & credit[/h1]
+Source & issues: [url=https://github.com/eebette/Better-Attack-Orders-for-Simple-Sidearms]GitHub[/url]. MIT-licensed. All credit to PeteTimesSix for Simple Sidearms.

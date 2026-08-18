@@ -1,7 +1,9 @@
 # Better Attack Orders for Simple Sidearms
 
-**Status: placeholder — no code yet.** This README is the complete project brief;
-an agent picking this up cold should be able to build it from here.
+**Status: BUILT and machine-verified 2026-08-18** — single Harmony postfix on
+`FloatMenuUtility.GetRangedAttackAction`, green end-to-end pass on a
+vanilla-only modlist (see TESTPLAN.md). Remaining: owner feel-pass, upstream
+issue filing (draft in `docs/UPSTREAM_ISSUE.md`), demo GIF, publish.
 
 ## Objective
 
@@ -15,6 +17,15 @@ logic never runs. The player must manually switch via the SS gizmo first.
 Fix: when building/validating a ranged attack order, consider **all carried
 weapons**; if the order is only satisfiable by a different carried weapon, swap
 (via SS's own preference machinery) before the attack job starts.
+
+**Mechanism settled (owner, 2026-08-18): SINGLE-OPTION repair.** The existing
+"Fire at X" order simply appears where it used to be missing and auto-swaps to
+the capable weapon via SS's own selection — NO per-weapon "attack with <weapon>"
+float-menu entries (new UI surface, a convention SS never uses; fails the
+ownership test). The name stays "Better Attack Orders" because the player-visible
+outcome is the existing order working, not a new order type. Explicit per-weapon
+entries remain a possible later opt-in ADDITION if feel-testing shows auto-pick
+choosing wrong.
 
 ## Scope and provenance
 
