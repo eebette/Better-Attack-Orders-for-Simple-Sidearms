@@ -95,35 +95,50 @@ namespace BetterAttackOrders
         {
             float distance = target.Cell.DistanceTo(pawn.Position);
 
-            bool Reaches(ThingWithComps weapon)
-            {
-                float range = weapon.def.Verbs?.FirstOrDefault()?.range ?? 0f;
-                return range >= distance
-                       && GenSight.LineOfSight(pawn.Position, target.Cell, pawn.Map, skipFirstCell: true);
-            }
-
-            bool Eligible(ThingWithComps weapon)
-            {
-                return weapon.def.IsRangedWeapon
-                       && weapon != pawn.equipment.Primary
-                       && !GettersFilters.isManualUse(weapon)
-                       && !GettersFilters.isDangerousWeapon(weapon)
-                       && !GettersFilters.isEMPWeapon(weapon);
-            }
-
             // SS's own choice first — respects forced weapons, preferences, and
             // (when the CE+SS compat suite is present) its CE-corrected scoring.
             var (best, _, _) = GettersFilters.findBestRangedWeapon(pawn, target);
-            if (best != null && best != pawn.equipment.Primary && Reaches(best))
+            if (best != null && best != pawn.equipment.Primary)
             {
-                return best;
+                var bestVerbs = best.def.Verbs;
+                float bestRange = (bestVerbs != null && bestVerbs.Count > 0) ? bestVerbs[0].range : 0f;
+                if (bestRange >= distance && GenSight.LineOfSight(pawn.Position, target.Cell, pawn.Map, skipFirstCell: true))
+                {
+                    return best;
+                }
             }
 
-            return pawn.GetCarriedWeapons(includeEquipped: false, includeTools: false)
-                .Where(Eligible)
-                .Where(Reaches)
-                .OrderByDescending(w => w.def.Verbs?.FirstOrDefault()?.range ?? 0f)
-                .FirstOrDefault();
+            var carried = pawn.GetCarriedWeapons(includeEquipped: false, includeTools: false);
+            ThingWithComps longestWeapon = null;
+            float maxRange = -1f;
+
+            for (int i = 0; i < carried.Count; i++)
+            {
+                ThingWithComps weapon = carried[i];
+                if (!weapon.def.IsRangedWeapon
+                    || weapon == pawn.equipment.Primary
+                    || GettersFilters.isManualUse(weapon)
+                    || GettersFilters.isDangerousWeapon(weapon)
+                    || GettersFilters.isEMPWeapon(weapon))
+                {
+                    continue;
+                }
+
+                var verbs = weapon.def.Verbs;
+                float range = (verbs != null && verbs.Count > 0) ? verbs[0].range : 0f;
+                if (range >= distance && range > maxRange)
+                {
+                    maxRange = range;
+                    longestWeapon = weapon;
+                }
+            }
+
+            if (longestWeapon != null && GenSight.LineOfSight(pawn.Position, target.Cell, pawn.Map, skipFirstCell: true))
+            {
+                return longestWeapon;
+            }
+
+            return null;
         }
     }
 }
