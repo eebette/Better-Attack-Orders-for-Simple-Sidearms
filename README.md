@@ -3,6 +3,8 @@
 [![Latest Release](https://img.shields.io/github/v/release/eebette/Better-Attack-Orders-for-Simple-Sidearms?label=Latest%20Release)](https://github.com/eebette/Better-Attack-Orders-for-Simple-Sidearms/releases)
 <!-- Steam Workshop badge goes here at publish -->
 
+![Better Attack Orders for Simple Sidearms](Media/Badge_BAO.png)
+
 Your pawn is holding a revolver and carrying a sniper rifle — this mod makes the
 attack order understand that.
 
