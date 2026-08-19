@@ -69,8 +69,10 @@ namespace BetterAttackOrders
             // Longest-reaching carried candidate that could see a target.
             ThingWithComps best = null;
             float bestRange = equippedVerb?.verbProps?.range ?? 0f;
-            foreach (ThingWithComps weapon in pawn.GetCarriedWeapons(includeEquipped: false, includeTools: false))
+            var carried = pawn.GetCarriedWeapons(includeEquipped: false, includeTools: false);
+            for (int i = 0; i < carried.Count; i++)
             {
+                ThingWithComps weapon = carried[i];
                 if (!weapon.def.IsRangedWeapon
                     || GettersFilters.isManualUse(weapon)
                     || GettersFilters.isDangerousWeapon(weapon)
@@ -78,7 +80,8 @@ namespace BetterAttackOrders
                 {
                     continue;
                 }
-                float range = weapon.def.Verbs?.FirstOrDefault()?.range ?? 0f;
+                var verbs = weapon.def.Verbs;
+                float range = (verbs != null && verbs.Count > 0) ? verbs[0].range : 0f;
                 if (range > bestRange)
                 {
                     bestRange = range;
