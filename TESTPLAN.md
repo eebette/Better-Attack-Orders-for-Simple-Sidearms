@@ -102,14 +102,24 @@ L3 (the order closure re-validates via `WouldRescue` at CLICK time, not
 menu-build time — the captured winner could have been hauled/equipped/destroyed).
 bao1-4 all green; "Installed 3 patch class(es)", no guard errors.
 
-**Convergence pass (2 attackers): no regression from the six fixes, two
-completeness gaps in M3/M6 closed.**
-- **M7 (M3 completeness)**: vanilla's out-of-range else-if masks its
-  ideoligion-animal refusals too, not just Violent/Downed. `WouldRescue` now
-  re-checks `IsKillingInnocentAnimal` + `IsVeneratedAnimal` (mirrors vanilla
-  GetRangedAttackAction lines 56/62 — necessary reproduction; the mask hides the
-  reason from failStr). Inert for non-animal targets and without Ideology.
-- **L4 (M6 completeness)**: the order's click closure calls
+**Convergence pass (2 attackers): no regression from the six fixes; one doctrine
+gap closed (L4), one edge accepted rather than mirrored (M7).**
+- **M7 (ideoligion-animal masking) — ACCEPTED LIMITATION, NOT fixed.** Vanilla's
+  out-of-range else-if masks its ideoligion-animal refusals
+  (`IsKillingInnocentAnimal` / `IsVeneratedAnimal`), so a rescued order can offer
+  a shot at an out-of-range venerated/innocent animal the pawn's ideoligion
+  forbids. A first fix re-checked those conditions in `WouldRescue` — but that
+  is a 1:1 REPRODUCTION of vanilla's own refusal expression (there is no callable
+  vanilla API for it), which violates the no-mirror rule, so it was REVERTED.
+  Distinct from M3's `Violent`/`Downed`, which are pawn-CAPABILITY checks BAO
+  makes on its own account (the idle path checks them too) — not a reproduction
+  of GetRangedAttackAction's UI logic. The residual edge is narrow (Ideology DLC
+  + a venerate/protect-animal precept + an out-of-range protected animal + a
+  player click) and recoverable (a mood hit, no corruption). A clean fix would
+  need to re-invoke vanilla with a reaching weapon (invasive) or transpile its
+  range check (bigger architecture change) — deferred; candidate for the upstream
+  issue draft. See [[rule-no-upstream-code-reuse]].
+- **L4 (M6 completeness) — FIXED.** the order's click closure calls
   `equipSpecificWeaponFromInventory` OUTSIDE PostfixInner's try (it runs later, on
   click), so an SS rename of that one method would throw uncaught at click. The
   closure now carries its own try/`Log.ErrorOnce` (0x0BA00004).

@@ -197,28 +197,6 @@ namespace BetterAttackOrders
             {
                 return false; // forced weapon / forced-unarmed — the player's call, not ours
             }
-            // The out-of-range refusal is an else-if that ALSO masks vanilla's
-            // ideoligion-animal refusals (an out-of-range venerated/innocent animal
-            // reads "OutOfRange", not "IdeoligionForbids"). The mask means we cannot
-            // read the reason from failStr, so re-check the same conditions vanilla
-            // checks after its range branch, or the rescue would re-enable a shot the
-            // pawn's ideoligion forbids. (Same masking class as Downed/Violent above;
-            // self/same-faction are handled upstream by the provider's CanTarget.)
-            if (target.Thing is Pawn victim)
-            {
-                if (HistoryEventUtility.IsKillingInnocentAnimal(pawn, victim)
-                    && !new HistoryEvent(HistoryEventDefOf.KilledInnocentAnimal,
-                        pawn.Named(HistoryEventArgsNames.Doer)).DoerWillingToDo())
-                {
-                    return false;
-                }
-                if (pawn.Ideo != null && pawn.Ideo.IsVeneratedAnimal(victim)
-                    && !new HistoryEvent(HistoryEventDefOf.HuntedVeneratedAnimal,
-                        pawn.Named(HistoryEventArgsNames.Doer)).DoerWillingToDo())
-                {
-                    return false;
-                }
-            }
             Verb equippedVerb = pawn.equipment.PrimaryEq?.PrimaryVerb;
             if (equippedVerb != null && equippedVerb.CanHitTarget(target))
             {
