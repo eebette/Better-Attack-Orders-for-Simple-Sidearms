@@ -66,9 +66,12 @@ NOTE: This mod stores nothing in your save — safe to add or remove at any time
 
 The deadlock exists in pure vanilla Simple Sidearms; this mod is a standalone
 interim fix and retires if it ever lands upstream (single-topic issue draft:
-[`docs/UPSTREAM_ISSUE.md`](docs/UPSTREAM_ISSUE.md)). Implementation is one
-Harmony postfix on `FloatMenuUtility.GetRangedAttackAction`; design decisions
-and provenance live in [`docs/DESIGN.md`](docs/DESIGN.md). Simple Sidearms is a
+[`docs/UPSTREAM_ISSUE.md`](docs/UPSTREAM_ISSUE.md)). Implementation is three
+Harmony postfixes — the order fix on `FloatMenuUtility.GetRangedAttackAction`,
+its honest label on `FloatMenuOptionProvider_DraftedAttack.GetOptionsFor`, and
+the idle auto-switch on `JobDriver_Wait.CheckForAutoAttack` — all sharing one
+selection path (`RescueLogic`); design decisions and provenance live in
+[`docs/DESIGN.md`](docs/DESIGN.md). Simple Sidearms is a
 build-time reference only — it ships no license, so no SS code is copied or
 redistributed.
 

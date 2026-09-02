@@ -219,6 +219,11 @@ namespace BAOTestStaging
                 TickBao2(tick);
                 return;
             }
+            if (scenario == "bao3")
+            {
+                TickBao3(tick);
+                return;
+            }
 
             if (phase == 0)
             {
@@ -458,6 +463,134 @@ namespace BAOTestStaging
                     Finish();
                 }
             }
+        }
+
+        /// <summary>bao3 — the idle redesign's discriminator: with TWO carried guns
+        /// that both reach the target, the idle switch must draw the one Simple
+        /// Sidearms' own findBestRangedWeapon prefers (higher DPS), NOT merely the
+        /// longest-range one. The bolt-action (36.9, slow single-shot) is longest;
+        /// the assault rifle (30.9, burst) is SS's pick; the raider parks between
+        /// the revolver's reach and the assault's, so both carried guns reach but
+        /// the revolver cannot. The pre-redesign "swap to the longest" logic draws
+        /// the bolt-action here and fails; the shared-selection redesign draws the
+        /// assault. Self-guards: if SS's pick ever equals the longest gun the
+        /// scenario is not discriminating and says so.</summary>
+        private ThingWithComps ssPick;
+
+        private void TickBao3(int tick)
+        {
+            if (phase == 0)
+            {
+                BetterAttackOrders.BAOMod.Settings.autoSwitchWhenIdle = true;
+                BetterAttackOrders.JobDriver_Wait_CheckForAutoAttack_Patch.FirstDrawnDef = null;
+                ThingWithComps Find(string defName) =>
+                    rangey.GetCarriedWeapons(includeEquipped: true, includeTools: true)
+                        .FirstOrDefault(t => t.def.defName == defName);
+                ThingWithComps revolver = Find("Gun_Revolver");
+                ThingWithComps bolt = Find("Gun_BoltActionRifle");
+                ThingWithComps assault = EnsureCarried("Gun_AssaultRifle");
+                if (revolver == null || bolt == null || assault == null)
+                {
+                    Check("setup", false, $"weapons missing: revolver={revolver != null} bolt={bolt != null} assault={assault != null}");
+                    Finish();
+                    return;
+                }
+                if (rangey.equipment.Primary != revolver)
+                {
+                    PeteTimesSix.SimpleSidearms.Utilities.WeaponAssingment
+                        .equipSpecificWeaponFromInventory(rangey, revolver, dropCurrent: false, intentionalDrop: false);
+                }
+                // Revolver as the stated default so the deadlock survives drafting.
+                CompSidearmMemory memory = CompSidearmMemory.GetMemoryCompForPawn(rangey);
+                memory.primaryWeaponMode = PeteTimesSix.SimpleSidearms.Utilities.Enums.PrimaryWeaponMode.Ranged;
+                memory.SetRangedWeaponTypeAsDefault(revolver.toThingDefStuffDefPair());
+
+                float revolverRange = rangey.equipment.PrimaryEq?.PrimaryVerb?.verbProps?.range ?? 0f;
+                float boltRange = bolt.def.Verbs?.FirstOrDefault()?.range ?? 0f;
+                float assaultRange = assault.def.Verbs?.FirstOrDefault()?.range ?? 0f;
+                // Beyond the revolver, within the SHORTER carried gun (so both reach).
+                int park = (int)(assaultRange - 3f);
+                if (park <= revolverRange || assaultRange >= boltRange)
+                {
+                    Check("setup", false, $"non-discriminating ranges: revolver={revolverRange:F1} assault={assaultRange:F1} bolt={boltRange:F1}");
+                    Finish();
+                    return;
+                }
+                IntVec3 cell = (rangey.Position + new IntVec3(park, 0, 0)).ClampInsideMap(rangey.Map);
+                if (!cell.Standable(rangey.Map))
+                {
+                    CellFinder.TryFindRandomCellNear(cell, rangey.Map, 8, c => c.Standable(rangey.Map), out cell);
+                }
+                parkCell = cell;
+                raider.Position = cell;
+                raider.Notify_Teleported();
+
+                // SS's own pick for this target, captured before the swap. The whole
+                // point of the redesign is that the idle path draws THIS, not `bolt`.
+                ssPick = PeteTimesSix.SimpleSidearms.Utilities.GettersFilters
+                    .findBestRangedWeapon(rangey, new LocalTargetInfo(raider)).weapon;
+                bool distinguishing = ssPick != null && ssPick.def == assault.def && ssPick.def != bolt.def;
+                Check("scenario-discriminates-ss-pick-from-longest", distinguishing,
+                    $"ssPick={ssPick?.def?.defName ?? "none"} longest={bolt.def.defName} assault={assault.def.defName} park={park} revolverRange={revolverRange:F1}");
+                if (!distinguishing)
+                {
+                    Finish();
+                    return;
+                }
+                rangey.drafter.Drafted = true;
+                phase = 1;
+                startTick = tick;
+                return;
+            }
+            if (phase == 1)
+            {
+                KeepRaiderParked();
+                // Assert what the IDLE path drew, not the end-state weapon: Simple
+                // Sidearms' warmup auto-switch fires after any draw and converges the
+                // final gun to its own pick, so the equipped weapon can't distinguish
+                // the idle selection logic. LastDrawnDef is what THIS patch chose.
+                ThingDef drawn = BetterAttackOrders.JobDriver_Wait_CheckForAutoAttack_Patch.FirstDrawnDef;
+                if (drawn == null)
+                {
+                    if (tick - startTick > 4000)
+                    {
+                        Check("idle-draws-ss-preferred-not-longest", false,
+                            $"idle never swapped within 4000t: primary={rangey.equipment.Primary?.def?.defName} job={rangey.CurJobDef?.defName}");
+                        Finish();
+                    }
+                    return;
+                }
+                bool drewSsPick = drawn == ssPick.def;
+                Check("idle-draws-ss-preferred-not-longest", drewSsPick,
+                    drewSsPick
+                        ? $"idle drew ssPick={drawn.defName} (SS-preferred, higher DPS), not the longest bolt-action"
+                        : $"idle drew {drawn.defName}, not SS's pick {ssPick.def.defName} — pre-redesign longest-range logic");
+                Finish();
+            }
+        }
+
+        /// <summary>Add a carried sidearm if the pawn lacks it (guns take no stuff —
+        /// MakeThing with stuff throws).</summary>
+        private ThingWithComps EnsureCarried(string defName)
+        {
+            ThingWithComps existing = rangey.GetCarriedWeapons(includeEquipped: true, includeTools: true)
+                .FirstOrDefault(t => t.def.defName == defName);
+            if (existing != null)
+            {
+                return existing;
+            }
+            ThingDef def = DefDatabase<ThingDef>.GetNamedSilentFail(defName);
+            if (def == null)
+            {
+                return null;
+            }
+            var gun = (ThingWithComps)ThingMaker.MakeThing(def);
+            if (!rangey.inventory.innerContainer.TryAdd(gun, false))
+            {
+                return null;
+            }
+            CompSidearmMemory.GetMemoryCompForPawn(rangey)?.InformOfAddedSidearm(gun);
+            return gun;
         }
 
         private void Finish()
