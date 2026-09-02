@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
 using PeteTimesSix.SimpleSidearms;
@@ -13,10 +14,70 @@ namespace BetterAttackOrders
     [StaticConstructorOnStartup]
     public static class Bootstrap
     {
+        public const string HarmonyId = "eebette.BetterAttackOrders";
+
         static Bootstrap()
         {
-            new Harmony("eebette.BetterAttackOrders").PatchAll(typeof(Bootstrap).Assembly);
-            Log.Message("[BetterAttackOrders] Patch installed.");
+            // Per class, not PatchAll: an upstream member moving (RimWorld or Simple
+            // Sidearms renames a method or a parameter — Harmony binds parameters by
+            // name, invisible to a Prepare guard) costs THAT one patch with a named,
+            // player-readable error, not the whole mod half-applied mid-assembly.
+            var harmony = new Harmony(HarmonyId);
+            int applied = 0;
+            var failures = new List<string>();
+            foreach (Type type in typeof(Bootstrap).Assembly.GetTypes())
+            {
+                try
+                {
+                    // Attribute probe INSIDE the try: decoding [HarmonyPatch] resolves
+                    // its typeof() args, so upstream type-level drift there also costs
+                    // one class, not the loop.
+                    if (type.GetCustomAttributes(typeof(HarmonyPatch), inherit: false).Length == 0)
+                    {
+                        continue;
+                    }
+                    // A Prepare-false class returns no patched methods and is SKIPPED.
+                    var patched = harmony.CreateClassProcessor(type).Patch();
+                    if (patched != null && patched.Count > 0)
+                    {
+                        applied++;
+                    }
+                }
+                catch (Exception e)
+                {
+                    failures.Add(type.Name);
+                    Log.Error($"{BAOGuard.LogPrefix}Patch class {type.Name} could not be applied — "
+                              + $"that one feature is inactive, the others still work. {e}");
+                }
+            }
+            if (failures.Count > 0)
+            {
+                Log.Warning($"{BAOGuard.LogPrefix}Installed {applied} patch class(es); "
+                            + $"{failures.Count} failed ({string.Join(", ", failures)}).");
+            }
+            else
+            {
+                Log.Message($"{BAOGuard.LogPrefix}Installed {applied} patch class(es).");
+            }
+        }
+    }
+
+    /// <summary>Shared failure-doctrine guard: every patch's Prepare() proves its
+    /// target still exists and, if not, logs a named player-readable consequence and
+    /// returns false so the class is skipped (inert) while the others still apply.</summary>
+    internal static class BAOGuard
+    {
+        internal const string LogPrefix = "[Better Attack Orders] ";
+
+        internal static bool Require(Type type, string method, Type[] args, string consequence)
+        {
+            if (AccessTools.Method(type, method, args) != null)
+            {
+                return true;
+            }
+            Log.Error($"{LogPrefix}{type.Name}.{method} not found — {consequence} "
+                      + "RimWorld or Simple Sidearms probably moved it.");
+            return false;
         }
     }
 
@@ -34,9 +95,15 @@ namespace BetterAttackOrders
     /// exact same attack job vanilla would have. Single-option repair: no new
     /// menu entries, the existing order just works.
     /// </summary>
-    [HarmonyPatch(typeof(FloatMenuUtility), nameof(FloatMenuUtility.GetRangedAttackAction))]
+    [HarmonyPatch(typeof(FloatMenuUtility), nameof(FloatMenuUtility.GetRangedAttackAction),
+                  new[] { typeof(Pawn), typeof(LocalTargetInfo), typeof(string) },
+                  new[] { ArgumentType.Normal, ArgumentType.Normal, ArgumentType.Out })]
     public static class FloatMenuUtility_GetRangedAttackAction_Patch
     {
+        public static bool Prepare() => BAOGuard.Require(typeof(FloatMenuUtility), "GetRangedAttackAction",
+            new[] { typeof(Pawn), typeof(LocalTargetInfo), typeof(string).MakeByRefType() },
+            "an out-of-range attack order will not consider carried sidearms (the deadlock this mod fixes returns).");
+
         [HarmonyPostfix]
         public static void Postfix(Pawn pawn, LocalTargetInfo target, ref string failStr, ref Action __result)
         {
@@ -102,15 +169,6 @@ namespace BetterAttackOrders
                        && GenSight.LineOfSight(pawn.Position, target.Cell, pawn.Map, skipFirstCell: true);
             }
 
-            bool Eligible(ThingWithComps weapon)
-            {
-                return weapon.def.IsRangedWeapon
-                       && weapon != pawn.equipment.Primary
-                       && !GettersFilters.isManualUse(weapon)
-                       && !GettersFilters.isDangerousWeapon(weapon)
-                       && !GettersFilters.isEMPWeapon(weapon);
-            }
-
             // SS's own choice first — respects forced weapons, preferences, and
             // (when the CE+SS compat suite is present) its CE-corrected scoring.
             var (best, _, _) = GettersFilters.findBestRangedWeapon(pawn, target);
@@ -120,10 +178,23 @@ namespace BetterAttackOrders
             }
 
             return pawn.GetCarriedWeapons(includeEquipped: false, includeTools: false)
-                .Where(Eligible)
+                .Where(w => IsEligibleCarried(pawn, w))
                 .Where(Reaches)
                 .OrderByDescending(w => w.def.Verbs?.FirstOrDefault()?.range ?? 0f)
                 .FirstOrDefault();
+        }
+
+        /// <summary>One eligibility rule for the whole mod (the order fix's fallback
+        /// and the idle switch's detection): a ranged carried weapon that is not the
+        /// equipped gun and not one Simple Sidearms itself skips (manual-use, EMP,
+        /// dangerous). Selection and scoring stay SS's — this is only the gate.</summary>
+        public static bool IsEligibleCarried(Pawn pawn, ThingWithComps weapon)
+        {
+            return weapon.def.IsRangedWeapon
+                   && weapon != pawn.equipment?.Primary
+                   && !GettersFilters.isManualUse(weapon)
+                   && !GettersFilters.isDangerousWeapon(weapon)
+                   && !GettersFilters.isEMPWeapon(weapon);
         }
     }
 }

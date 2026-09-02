@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using HarmonyLib;
 using PeteTimesSix.SimpleSidearms;
@@ -38,6 +39,10 @@ namespace BetterAttackOrders
     [HarmonyPatch(typeof(JobDriver_Wait), "CheckForAutoAttack")]
     public static class JobDriver_Wait_CheckForAutoAttack_Patch
     {
+        public static bool Prepare() => BAOGuard.Require(typeof(JobDriver_Wait), "CheckForAutoAttack",
+            Type.EmptyTypes,
+            "the idle auto-switch is inactive; a guarding pawn will stand still with a longer-ranged sidearm carried.");
+
         public static int SwapCount;             // test forensics
         public static ThingDef FirstDrawnDef;    // test forensics: the FIRST gun this path
                                                  // selected. Only the first draw reflects the
@@ -90,10 +95,7 @@ namespace BetterAttackOrders
             float maxReach = 0f;
             foreach (ThingWithComps weapon in pawn.GetCarriedWeapons(includeEquipped: false, includeTools: false))
             {
-                if (!weapon.def.IsRangedWeapon
-                    || GettersFilters.isManualUse(weapon)
-                    || GettersFilters.isDangerousWeapon(weapon)
-                    || GettersFilters.isEMPWeapon(weapon))
+                if (!RescueLogic.IsEligibleCarried(pawn, weapon))
                 {
                     continue;
                 }

@@ -15,9 +15,14 @@ namespace BetterAttackOrders
     /// action patch hooks, hence the second patch point; RescueLogic keeps the two
     /// from ever disagreeing.
     /// </summary>
-    [HarmonyPatch(typeof(FloatMenuOptionProvider_DraftedAttack), nameof(FloatMenuOptionProvider_DraftedAttack.GetOptionsFor))]
+    [HarmonyPatch(typeof(FloatMenuOptionProvider_DraftedAttack), nameof(FloatMenuOptionProvider_DraftedAttack.GetOptionsFor),
+                  new[] { typeof(Thing), typeof(FloatMenuContext) })]
     public static class FloatMenuOptionProvider_DraftedAttack_GetOptionsFor_Patch
     {
+        public static bool Prepare() => BAOGuard.Require(typeof(FloatMenuOptionProvider_DraftedAttack), "GetOptionsFor",
+            new[] { typeof(Thing), typeof(FloatMenuContext) },
+            "the rescued attack order will still work but will not name the weapon it draws.");
+
         [HarmonyPostfix]
         public static void Postfix(Thing clickedThing, FloatMenuContext context, ref IEnumerable<FloatMenuOption> __result)
         {
