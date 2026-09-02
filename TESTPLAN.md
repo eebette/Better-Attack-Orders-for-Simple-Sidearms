@@ -102,6 +102,24 @@ L3 (the order closure re-validates via `WouldRescue` at CLICK time, not
 menu-build time — the captured winner could have been hauled/equipped/destroyed).
 bao1-4 all green; "Installed 3 patch class(es)", no guard errors.
 
+**Convergence pass (2 attackers): no regression from the six fixes, two
+completeness gaps in M3/M6 closed.**
+- **M7 (M3 completeness)**: vanilla's out-of-range else-if masks its
+  ideoligion-animal refusals too, not just Violent/Downed. `WouldRescue` now
+  re-checks `IsKillingInnocentAnimal` + `IsVeneratedAnimal` (mirrors vanilla
+  GetRangedAttackAction lines 56/62 — necessary reproduction; the mask hides the
+  reason from failStr). Inert for non-animal targets and without Ideology.
+- **L4 (M6 completeness)**: the order's click closure calls
+  `equipSpecificWeaponFromInventory` OUTSIDE PostfixInner's try (it runs later, on
+  click), so an SS rename of that one method would throw uncaught at click. The
+  closure now carries its own try/`Log.ErrorOnce` (0x0BA00004).
+- Both attackers CLEARED the six fixes against decompiles: the verb-on-carried
+  range calls (WithinWindow/EffectiveRange) are NPE-safe (a CompEquippable verb's
+  caster is always null; AdjustedRange/EffectiveMinRange never deref it) and are a
+  line-for-line match of SS's own window; the three NoInlining splits are
+  behaviour-preserving with distinct keys; IsCurrentWeaponForced(false) does not
+  over-bail a default-preference pawn. Converged.
+
 ## Harness ops note
 
 Truncate `Player.log` (`: > "$LOG"`) before each launch a watcher greps — the

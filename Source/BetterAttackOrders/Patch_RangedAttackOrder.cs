@@ -141,15 +141,26 @@ namespace BetterAttackOrders
             failStr = null;
             __result = () =>
             {
-                // Re-validate at CLICK time, not menu-build time: the float menu does
-                // not pause the game, so the captured winner could have been hauled,
-                // equipped, or destroyed in the interim. Re-running WouldRescue picks a
-                // fresh reaching weapon (or none); the ordered attack issues regardless
-                // — the player asked to fire at this target.
-                if (RescueLogic.WouldRescue(pawn, target, out ThingWithComps freshWinner))
+                // This closure runs LATER, on click — outside PostfixInner's try — and
+                // is the one place equipSpecificWeaponFromInventory is reached, so it
+                // carries its own failure-doctrine guard (an SS rename would otherwise
+                // throw uncaught at click time).
+                try
                 {
-                    WeaponAssingment.equipSpecificWeaponFromInventory(pawn, freshWinner, dropCurrent: false, intentionalDrop: false);
+                    // Re-validate at CLICK time, not menu-build time: the float menu does
+                    // not pause the game, so the captured winner could have been hauled,
+                    // equipped, or destroyed in the interim. Re-running WouldRescue picks
+                    // a fresh reaching weapon (or none).
+                    if (RescueLogic.WouldRescue(pawn, target, out ThingWithComps freshWinner))
+                    {
+                        WeaponAssingment.equipSpecificWeaponFromInventory(pawn, freshWinner, dropCurrent: false, intentionalDrop: false);
+                    }
                 }
+                catch (Exception e)
+                {
+                    Log.ErrorOnce(BAOGuard.LogPrefix + "Attack-order weapon swap failed; firing with the equipped weapon. " + e, 0x0BA00004);
+                }
+                // The ordered attack issues regardless — the player asked to fire here.
                 Job job = JobMaker.MakeJob(JobDefOf.AttackStatic, target);
                 pawn.jobs.TryTakeOrderedJob(job, JobTag.Misc);
             };
@@ -185,6 +196,28 @@ namespace BetterAttackOrders
                     ?.IsCurrentWeaponForced(alsoCountPreferredOrDefault: false) ?? false)
             {
                 return false; // forced weapon / forced-unarmed — the player's call, not ours
+            }
+            // The out-of-range refusal is an else-if that ALSO masks vanilla's
+            // ideoligion-animal refusals (an out-of-range venerated/innocent animal
+            // reads "OutOfRange", not "IdeoligionForbids"). The mask means we cannot
+            // read the reason from failStr, so re-check the same conditions vanilla
+            // checks after its range branch, or the rescue would re-enable a shot the
+            // pawn's ideoligion forbids. (Same masking class as Downed/Violent above;
+            // self/same-faction are handled upstream by the provider's CanTarget.)
+            if (target.Thing is Pawn victim)
+            {
+                if (HistoryEventUtility.IsKillingInnocentAnimal(pawn, victim)
+                    && !new HistoryEvent(HistoryEventDefOf.KilledInnocentAnimal,
+                        pawn.Named(HistoryEventArgsNames.Doer)).DoerWillingToDo())
+                {
+                    return false;
+                }
+                if (pawn.Ideo != null && pawn.Ideo.IsVeneratedAnimal(victim)
+                    && !new HistoryEvent(HistoryEventDefOf.HuntedVeneratedAnimal,
+                        pawn.Named(HistoryEventArgsNames.Doer)).DoerWillingToDo())
+                {
+                    return false;
+                }
             }
             Verb equippedVerb = pawn.equipment.PrimaryEq?.PrimaryVerb;
             if (equippedVerb != null && equippedVerb.CanHitTarget(target))
