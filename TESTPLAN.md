@@ -56,6 +56,52 @@ Pending: composition run in the CE+SS suite profile (the fix calls SS's
 `findBestRangedWeapon`, which the suite's core patch makes CE-aware — expected
 free, verify once when convenient). Owner feel-pass.
 
+## Adversarial review round (2026-09-02) — 6 MEDIUM fixed
+
+Three attackers over the failure-doctrine retrofit + idle-redesign state found
+six real MEDIUMs; all fixed. The mod looked converged and was not.
+
+Guard-parity + forced-state cluster (the always-on order path was LESS guarded
+than the toggle idle path — backwards):
+- **M1 order fix ignored forced weapons.** `findBestRangedWeapon` does not
+  consult `ForcedWeapon` (SS's forced-respect lives in
+  `trySwapToMoreAccurateRangedWeapon`, which this path never calls), so a forced
+  revolver got overridden on a rescued click. Fixed: `WouldRescue` bails on
+  `IsCurrentWeaponForced(false)`.
+- **M2 idle armed a FORCE-UNARMED pawn.** The gate checked the two armed forced
+  fields, missing `ForcedUnarmed`/`ForcedUnarmedWhileDrafted`. Fixed by the same
+  `IsCurrentWeaponForced` call (covers all forced states; also removes a mirror).
+- **M3 order re-enabled non-range refusals.** Vanilla `GetRangedAttackAction`
+  returns `OutOfRange` in an else-if BEFORE the incapable-of-violence branch, so
+  an out-of-range refusal masks it; `WouldRescue` lacked the `Downed`/`Violent`
+  guards the idle path has, so it armed pacifists. Fixed: added both guards.
+- Pinned by **bao4**: `order-declines-when-weapon-forced` +
+  `idle-leaves-force-unarmed-alone`. A/B'd — neuter both forced bails and the
+  order offers the rifle to a forced pawn / the idle arms the unarmed pawn.
+
+- **M4 `IsEligibleCarried` omitted `canUseSidearmInstance`.** The fallback could
+  select a biocoded/bladelink/role-locked weapon SS's equip (`equipSpecificWeapon`
+  line 128) then refuses, looping the idle switch every ~4 ticks. Fixed by adding
+  SS's own `canUseSidearmInstance` (gated on `AllowBlockedWeaponUse`, matching
+  `findBestRangedWeapon`).
+- **M5 reach used raw `def.range`, not effective.** Under a weather `maxRangeCap`
+  (vanilla-triggerable) or CE range-reducing ammo, two long carried guns
+  flip-flopped (SS's window uses weather-capped `AdjustedRange`; BAO's raw range
+  diverged). Fixed: `RescueLogic.WithinWindow`/`EffectiveRange` call vanilla's own
+  `AdjustedRange` + `EffectiveMinRange` on the carried weapon's verb (the same
+  methods SS's window uses — not a reproduction), which also closes the min-range
+  LOW.
+- **M6 missing failure-doctrine layer 3.** The Prepare guards proved only the
+  RimWorld targets, not the SS members the bodies call (JIT-resolved on first
+  compile). All three postfixes now split thin-outer / `[MethodImpl(NoInlining)]`
+  inner in try/catch with `Log.ErrorOnce` (0x0BA0000x), matching the reference
+  `F01_ReloadAbort`.
+
+Also: L2 (idle now mirrors vanilla's `Wait_Combat` + `canUseRangedWeapon` gate),
+L3 (the order closure re-validates via `WouldRescue` at CLICK time, not
+menu-build time — the captured winner could have been hauled/equipped/destroyed).
+bao1-4 all green; "Installed 3 patch class(es)", no guard errors.
+
 ## Harness ops note
 
 Truncate `Player.log` (`: > "$LOG"`) before each launch a watcher greps — the

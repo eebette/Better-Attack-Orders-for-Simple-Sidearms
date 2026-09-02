@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using HarmonyLib;
 using PeteTimesSix.SimpleSidearms;
 using PeteTimesSix.SimpleSidearms.Utilities;
@@ -104,8 +105,25 @@ namespace BetterAttackOrders
             new[] { typeof(Pawn), typeof(LocalTargetInfo), typeof(string).MakeByRefType() },
             "an out-of-range attack order will not consider carried sidearms (the deadlock this mod fixes returns).");
 
+        // Thin outer / NoInlining inner (failure-doctrine layer 3): the inner body
+        // references SS members the JIT resolves only when it first compiles — an SS
+        // rename would throw from inside the hook, uncatchable by the Prepare guard;
+        // the try here turns that into a one-time error, original order intact.
         [HarmonyPostfix]
         public static void Postfix(Pawn pawn, LocalTargetInfo target, ref string failStr, ref Action __result)
+        {
+            try
+            {
+                PostfixInner(pawn, target, ref failStr, ref __result);
+            }
+            catch (Exception e)
+            {
+                Log.ErrorOnce(BAOGuard.LogPrefix + "Attack-order rescue failed; the vanilla order stands. " + e, 0x0BA00001);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void PostfixInner(Pawn pawn, LocalTargetInfo target, ref string failStr, ref Action __result)
         {
             if (__result != null || pawn == null || !target.IsValid)
             {
@@ -113,7 +131,8 @@ namespace BetterAttackOrders
             }
             // Rescue ONLY the failure this mod fixes: a drafted pawn whose EQUIPPED
             // weapon can't hit the target. Every other vanilla refusal (not drafted,
-            // downed, incapable of violence, ...) must stand untouched.
+            // downed, incapable of violence, forced weapon, ...) stands untouched —
+            // WouldRescue bails on each.
             if (!RescueLogic.WouldRescue(pawn, target, out ThingWithComps winner))
             {
                 return;
@@ -122,7 +141,15 @@ namespace BetterAttackOrders
             failStr = null;
             __result = () =>
             {
-                WeaponAssingment.equipSpecificWeaponFromInventory(pawn, winner, dropCurrent: false, intentionalDrop: false);
+                // Re-validate at CLICK time, not menu-build time: the float menu does
+                // not pause the game, so the captured winner could have been hauled,
+                // equipped, or destroyed in the interim. Re-running WouldRescue picks a
+                // fresh reaching weapon (or none); the ordered attack issues regardless
+                // — the player asked to fire at this target.
+                if (RescueLogic.WouldRescue(pawn, target, out ThingWithComps freshWinner))
+                {
+                    WeaponAssingment.equipSpecificWeaponFromInventory(pawn, freshWinner, dropCurrent: false, intentionalDrop: false);
+                }
                 Job job = JobMaker.MakeJob(JobDefOf.AttackStatic, target);
                 pawn.jobs.TryTakeOrderedJob(job, JobTag.Misc);
             };
@@ -134,15 +161,30 @@ namespace BetterAttackOrders
     public static class RescueLogic
     {
         /// <summary>True when this order would be OUR rescued order: drafted pawn,
-        /// equipped weapon can't hit, and a carried weapon can. Outputs the weapon.</summary>
+        /// equipped weapon can't hit, and a carried weapon can. Outputs the weapon.
+        ///
+        /// Guards match the idle path's: vanilla returns "out of range" in an
+        /// else-if chain BEFORE it checks incapable-of-violence, so an out-of-range
+        /// refusal masks those reasons — without the Downed/Violent bail here, the
+        /// rescue would re-enable an attack vanilla refuses for a NON-range reason
+        /// and swap the weapon of a pawn that cannot fight. And a forced weapon (or
+        /// forced-unarmed) is the player's explicit choice: SS's own auto-swap bails
+        /// on IsCurrentWeaponForced, and so does this — findBestRangedWeapon does NOT
+        /// consult the forced flags, so the check must live here.</summary>
         public static bool WouldRescue(Pawn pawn, LocalTargetInfo target, out ThingWithComps winner)
         {
             winner = null;
-            if (pawn == null || !target.IsValid || !pawn.Drafted
+            if (pawn == null || !target.IsValid || !pawn.Drafted || pawn.Downed
+                || pawn.WorkTagIsDisabled(WorkTags.Violent)
                 || pawn.equipment == null || pawn.inventory == null
                 || !pawn.IsValidSidearmsCarrierRightNow())
             {
                 return false;
+            }
+            if (CompSidearmMemory.GetMemoryCompForPawn(pawn, fillExistingIfCreating: false)
+                    ?.IsCurrentWeaponForced(alsoCountPreferredOrDefault: false) ?? false)
+            {
+                return false; // forced weapon / forced-unarmed — the player's call, not ours
             }
             Verb equippedVerb = pawn.equipment.PrimaryEq?.PrimaryVerb;
             if (equippedVerb != null && equippedVerb.CanHitTarget(target))
@@ -154,47 +196,78 @@ namespace BetterAttackOrders
         }
 
         /// <summary>
-        /// The carried weapon SS itself would pick for this target, provided it can
-        /// actually reach from the pawn's current position. Falls back to the
-        /// longest-reaching eligible carried weapon when SS's pick can't reach.
+        /// The carried weapon SS itself would pick for this target (CE-corrected
+        /// scoring when the compat suite is present), provided it can actually reach
+        /// from the pawn's current position. Falls back to the longest-reaching
+        /// eligible carried weapon — by EFFECTIVE range — when SS's pick can't reach.
         /// </summary>
         public static ThingWithComps FindReachingWeapon(Pawn pawn, LocalTargetInfo target)
         {
-            float distance = target.Cell.DistanceTo(pawn.Position);
-
-            bool Reaches(ThingWithComps weapon)
-            {
-                float range = weapon.def.Verbs?.FirstOrDefault()?.range ?? 0f;
-                return range >= distance
-                       && GenSight.LineOfSight(pawn.Position, target.Cell, pawn.Map, skipFirstCell: true);
-            }
-
-            // SS's own choice first — respects forced weapons, preferences, and
-            // (when the CE+SS compat suite is present) its CE-corrected scoring.
+            // SS's own choice first — preferences and CE scoring.
             var (best, _, _) = GettersFilters.findBestRangedWeapon(pawn, target);
-            if (best != null && best != pawn.equipment.Primary && Reaches(best))
+            if (best != null && best != pawn.equipment.Primary && WithinWindow(pawn, best, target))
             {
                 return best;
             }
 
             return pawn.GetCarriedWeapons(includeEquipped: false, includeTools: false)
                 .Where(w => IsEligibleCarried(pawn, w))
-                .Where(Reaches)
-                .OrderByDescending(w => w.def.Verbs?.FirstOrDefault()?.range ?? 0f)
+                .Where(w => WithinWindow(pawn, w, target))
+                .OrderByDescending(w => EffectiveRange(pawn, w))
                 .FirstOrDefault();
         }
 
         /// <summary>One eligibility rule for the whole mod (the order fix's fallback
         /// and the idle switch's detection): a ranged carried weapon that is not the
-        /// equipped gun and not one Simple Sidearms itself skips (manual-use, EMP,
-        /// dangerous). Selection and scoring stay SS's — this is only the gate.</summary>
+        /// equipped gun and one Simple Sidearms would actually let the pawn wield —
+        /// its skip flags (manual-use, EMP, dangerous) AND usability
+        /// (canUseSidearmInstance: bladelink/biocode/role, unless AllowBlockedWeaponUse).
+        /// Without the usability check the fallback could pick a weapon SS's own
+        /// equip then refuses, looping the switch. Selection/scoring stay SS's.</summary>
         public static bool IsEligibleCarried(Pawn pawn, ThingWithComps weapon)
         {
             return weapon.def.IsRangedWeapon
                    && weapon != pawn.equipment?.Primary
                    && !GettersFilters.isManualUse(weapon)
                    && !GettersFilters.isDangerousWeapon(weapon)
-                   && !GettersFilters.isEMPWeapon(weapon);
+                   && !GettersFilters.isEMPWeapon(weapon)
+                   && (PeteTimesSix.SimpleSidearms.SimpleSidearms.Settings.AllowBlockedWeaponUse
+                       || StatCalculator.canUseSidearmInstance(weapon, pawn, out _));
+        }
+
+        /// <summary>A carried weapon's MAX engage range, computed the way vanilla and
+        /// SS compute it — VerbProperties.AdjustedRange, which applies the weather
+        /// max-range cap the raw def range ignores. Using the raw range diverges from
+        /// SS's own selection window and, under a range cap (blizzard weather, CE
+        /// range-reducing ammo), flip-flops the idle switch between two long guns.</summary>
+        public static float EffectiveRange(Pawn pawn, ThingWithComps weapon)
+        {
+            Verb verb = weapon.TryGetComp<CompEquippable>()?.PrimaryVerb;
+            VerbProperties props = verb?.verbProps ?? weapon.def.Verbs?.FirstOrDefault();
+            if (props == null)
+            {
+                return 0f;
+            }
+            return verb != null ? props.AdjustedRange(verb, pawn) : props.range;
+        }
+
+        /// <summary>SS's own two-sided range window for this carried weapon against
+        /// this target (EffectiveMinRange..AdjustedRange), plus the line of sight the
+        /// pawn needs from where it stands. Calls the same vanilla methods SS's
+        /// findBestRangedWeapon uses — not a reproduction of them.</summary>
+        public static bool WithinWindow(Pawn pawn, ThingWithComps weapon, LocalTargetInfo target)
+        {
+            Verb verb = weapon.TryGetComp<CompEquippable>()?.PrimaryVerb;
+            VerbProperties props = verb?.verbProps ?? weapon.def.Verbs?.FirstOrDefault();
+            if (props == null)
+            {
+                return false;
+            }
+            float distance = target.Cell.DistanceTo(pawn.Position);
+            float max = verb != null ? props.AdjustedRange(verb, pawn) : props.range;
+            float min = props.EffectiveMinRange(target, pawn);
+            return distance >= min && distance <= max
+                   && GenSight.LineOfSight(pawn.Position, target.Cell, pawn.Map, skipFirstCell: true);
         }
     }
 }

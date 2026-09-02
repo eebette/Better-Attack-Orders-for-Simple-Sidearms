@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using HarmonyLib;
 using RimWorld;
 using Verse;
@@ -23,8 +25,24 @@ namespace BetterAttackOrders
             new[] { typeof(Thing), typeof(FloatMenuContext) },
             "the rescued attack order will still work but will not name the weapon it draws.");
 
+        // Thin outer / NoInlining inner (failure-doctrine layer 3): the inner resolves
+        // RescueLogic's SS members at first JIT; a rename would throw on every drafted
+        // right-click — the try turns it into a one-time error, vanilla menu intact.
         [HarmonyPostfix]
         public static void Postfix(Thing clickedThing, FloatMenuContext context, ref IEnumerable<FloatMenuOption> __result)
+        {
+            try
+            {
+                PostfixInner(clickedThing, context, ref __result);
+            }
+            catch (Exception e)
+            {
+                Log.ErrorOnce(BAOGuard.LogPrefix + "Attack-order label annotation failed; the order works, unlabeled. " + e, 0x0BA00003);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void PostfixInner(Thing clickedThing, FloatMenuContext context, ref IEnumerable<FloatMenuOption> __result)
         {
             if (context == null || clickedThing == null || context.IsMultiselect)
             {

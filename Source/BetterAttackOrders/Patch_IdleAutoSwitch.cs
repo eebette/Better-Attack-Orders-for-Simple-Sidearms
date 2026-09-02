@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using HarmonyLib;
 using PeteTimesSix.SimpleSidearms;
 using PeteTimesSix.SimpleSidearms.Utilities;
@@ -51,8 +52,24 @@ namespace BetterAttackOrders
                                                  // and SS's warmup auto-switch re-picks the
                                                  // final weapon independently.
 
+        // Thin outer / NoInlining inner (failure-doctrine layer 3): the inner body
+        // resolves SS members at first JIT; an SS rename would throw into the wait
+        // tick uncatchably — the try turns it into a one-time error, pawn untouched.
         [HarmonyPostfix]
         public static void Postfix(JobDriver_Wait __instance)
+        {
+            try
+            {
+                PostfixInner(__instance);
+            }
+            catch (Exception e)
+            {
+                Log.ErrorOnce(BAOGuard.LogPrefix + "Idle auto-switch failed; the pawn is left as vanilla placed it. " + e, 0x0BA00002);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void PostfixInner(JobDriver_Wait __instance)
         {
             if (!BAOMod.Settings.autoSwitchWhenIdle)
             {
@@ -63,8 +80,13 @@ namespace BetterAttackOrders
             // ~4-tick hash interval, and 1.6's bucketed tickIntervalAction deltas make
             // exact-tick IsHashIntervalTick gates here miss almost every invocation.
             // The two scans below run only after every cheap guard has passed.
+            // Mirror vanilla's own ranged-auto-attack preconditions (CheckForAutoAttack
+            // bails unless the job is Wait_Combat with canUseRangedWeapon) so the
+            // switch never fires in a wait state where vanilla suppresses ranged fire.
             if (pawn == null || !pawn.Drafted || pawn.Downed
                 || !(pawn.drafter?.FireAtWill ?? false)
+                || __instance.job?.def != JobDefOf.Wait_Combat
+                || !(__instance.job?.canUseRangedWeapon ?? false)
                 || pawn.stances.curStance is Stance_Busy
                 || pawn.equipment == null || pawn.inventory == null
                 || !pawn.IsValidSidearmsCarrierRightNow()
@@ -73,9 +95,9 @@ namespace BetterAttackOrders
                 return;
             }
             CompSidearmMemory memory = CompSidearmMemory.GetMemoryCompForPawn(pawn, fillExistingIfCreating: false);
-            if (memory?.ForcedWeapon != null || memory?.ForcedWeaponWhileDrafted != null)
+            if (memory?.IsCurrentWeaponForced(alsoCountPreferredOrDefault: false) ?? false)
             {
-                return; // explicit player weapon choice — never second-guess it
+                return; // forced weapon OR forced-unarmed — the player's explicit choice
             }
 
             // Vanilla just ran with the equipped verb; if it found something the
@@ -89,9 +111,11 @@ namespace BetterAttackOrders
                 return;
             }
 
-            // DETECTION: the longest reach among eligible carried ranged weapons.
-            // Same eligibility filter RescueLogic uses (ranged, not manual/dangerous/
-            // EMP), so a weapon that sets maxReach is always one selection can return.
+            // DETECTION: the longest EFFECTIVE reach among eligible carried ranged
+            // weapons (RescueLogic.EffectiveRange — weather-capped, the same window
+            // selection uses; raw def range would flip-flop under a range cap). Same
+            // eligibility filter RescueLogic selects with, so a weapon that sets
+            // maxReach is always one selection can return.
             float maxReach = 0f;
             foreach (ThingWithComps weapon in pawn.GetCarriedWeapons(includeEquipped: false, includeTools: false))
             {
@@ -99,7 +123,7 @@ namespace BetterAttackOrders
                 {
                     continue;
                 }
-                float range = weapon.def.Verbs?.FirstOrDefault()?.range ?? 0f;
+                float range = RescueLogic.EffectiveRange(pawn, weapon);
                 if (range > maxReach)
                 {
                     maxReach = range;

@@ -224,6 +224,11 @@ namespace BAOTestStaging
                 TickBao3(tick);
                 return;
             }
+            if (scenario == "bao4")
+            {
+                TickBao4(tick);
+                return;
+            }
 
             if (phase == 0)
             {
@@ -592,6 +597,82 @@ namespace BAOTestStaging
             CompSidearmMemory.GetMemoryCompForPawn(rangey)?.InformOfAddedSidearm(gun);
             return gun;
         }
+
+        /// <summary>bao4 — forced-state guard parity. Phase 0: the right-click order
+        /// fix must DECLINE when the pawn has a forced weapon (it previously ignored
+        /// forced state entirely — findBestRangedWeapon does not consult it). Phase 1:
+        /// the idle auto-switch must not arm a FORCE-UNARMED pawn (its gate checked
+        /// only the two armed forced fields, missing ForcedUnarmed). Both now route
+        /// through SS's own IsCurrentWeaponForced.</summary>
+        private void TickBao4(int tick)
+        {
+            if (phase == 0)
+            {
+                BetterAttackOrders.BAOMod.Settings.autoSwitchWhenIdle = false; // isolate the order path
+                if (!ConstructDeadlock(out _))
+                {
+                    Finish();
+                    return;
+                }
+                rangey.drafter.Drafted = true;
+                CompSidearmMemory memory = CompSidearmMemory.GetMemoryCompForPawn(rangey);
+                ThingWithComps revolver = rangey.equipment.Primary;
+                memory.SetWeaponAsForced(revolver.toThingDefStuffDefPair(), drafted: true);
+                bool declined = !BetterAttackOrders.RescueLogic.WouldRescue(
+                    rangey, new LocalTargetInfo(raider), out ThingWithComps winner);
+                Check("order-declines-when-weapon-forced", declined,
+                    $"forced={memory.IsCurrentWeaponForced(false)} rescueWinner={winner?.def?.defName ?? "none (declined)"}");
+                phase = 1;
+                startTick = tick;
+                return;
+            }
+            if (phase == 1)
+            {
+                if (phase1Init == 0)
+                {
+                    CompSidearmMemory memory = CompSidearmMemory.GetMemoryCompForPawn(rangey);
+                    memory.UnsetForcedWeapon(drafted: true);
+                    if (!ConstructDeadlock(out _, parkAtRifleEdge: true)) // raider within the carried rifle's reach
+                    {
+                        Finish();
+                        return;
+                    }
+                    rangey.drafter.Drafted = true;
+                    rangey.drafter.FireAtWill = true;
+                    memory.SetUnarmedAsForced(drafted: true); // sets the flag only
+                    // SS's unequip is a later management pass; do it here so the pawn is
+                    // genuinely unarmed with the rifle still carried.
+                    if (rangey.equipment.Primary != null)
+                    {
+                        rangey.equipment.TryTransferEquipmentToContainer(
+                            rangey.equipment.Primary, rangey.inventory.innerContainer);
+                    }
+                    BetterAttackOrders.BAOMod.Settings.autoSwitchWhenIdle = true;
+                    BetterAttackOrders.JobDriver_Wait_CheckForAutoAttack_Patch.SwapCount = 0;
+                    Check("force-unarmed-staged", rangey.equipment.Primary == null && memory.IsCurrentWeaponForced(false),
+                        $"primary={rangey.equipment.Primary?.def?.defName ?? "unarmed"} forced={memory.IsCurrentWeaponForced(false)}");
+                    phase1Init = tick;
+                    startTick = tick;
+                    return;
+                }
+                KeepRaiderParked();
+                int swaps = BetterAttackOrders.JobDriver_Wait_CheckForAutoAttack_Patch.SwapCount;
+                if (swaps > 0 || rangey.equipment.Primary != null)
+                {
+                    Check("idle-leaves-force-unarmed-alone", false,
+                        $"idle armed a force-unarmed pawn: primary={rangey.equipment.Primary?.def?.defName} swaps={swaps}");
+                    Finish();
+                    return;
+                }
+                if (tick - startTick > 1800)
+                {
+                    Check("idle-leaves-force-unarmed-alone", true, "stayed unarmed for 1800 ticks, 0 swaps");
+                    Finish();
+                }
+            }
+        }
+
+        private int phase1Init;
 
         private void Finish()
         {
