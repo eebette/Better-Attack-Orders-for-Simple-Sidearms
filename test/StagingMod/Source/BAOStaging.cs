@@ -15,7 +15,7 @@ namespace BAOTestStaging
     /// Stages BAO-1-attack-order (-quicktest -baostage): colonist "Rangey" with a
     /// short-range autopistol EQUIPPED and a long-range bolt-action rifle in
     /// inventory; a disarmed hostile parked between the two ranges. Runs on a
-    /// VANILLA-ONLY modlist — that is the point of this mod.
+    /// VANILLA-ONLY modlist - that is the point of this mod.
     /// </summary>
     public class BAOStagingComponent : GameComponent
     {
@@ -232,14 +232,14 @@ namespace BAOTestStaging
 
             if (phase == 0)
             {
-                // bao1 tests the ORDER fix in isolation — the v1.1 idle auto-switch
+                // bao1 tests the ORDER fix in isolation - the v1.1 idle auto-switch
                 // (default ON) otherwise fires the instant the pawn is drafted (the
                 // Wait job's init runs CheckForAutoAttack) and dissolves the deadlock
                 // before the order path is ever exercised.
                 BetterAttackOrders.BAOMod.Settings.autoSwitchWhenIdle = false;
                 // CONSTRUCT the precondition instead of assuming it (SS's own logic may
                 // have re-equipped the rifle on load): revolver in hand, rifle in
-                // inventory, raider parked between the two ranges (computed at runtime —
+                // inventory, raider parked between the two ranges (computed at runtime -
                 // hardcoded distances lose to vanilla def changes).
                 ThingWithComps Find(string defName) =>
                     rangey.GetCarriedWeapons(includeEquipped: true, includeTools: true)
@@ -363,7 +363,7 @@ namespace BAOTestStaging
                     .equipSpecificWeaponFromInventory(rangey, revolver, dropCurrent: false, intentionalDrop: false);
             }
             // SS swaps to its PREFERRED ranged weapon on draft (BySkill would pick the
-            // rifle and dissolve the deadlock) — make the revolver the stated
+            // rifle and dissolve the deadlock) - make the revolver the stated
             // preference so the deadlock survives drafting, exactly like a player
             // who set their short gun as default.
             CompSidearmMemory memory = CompSidearmMemory.GetMemoryCompForPawn(rangey);
@@ -371,7 +371,7 @@ namespace BAOTestStaging
             memory.SetRangedWeaponTypeAsDefault(revolver.toThingDefStuffDefPair());
             float equippedRange = rangey.equipment.PrimaryEq?.PrimaryVerb?.verbProps?.range ?? 0f;
             rifleRange = rifle.def.Verbs?.FirstOrDefault()?.range ?? 0f;
-            // parkAtRifleEdge: idle scenarios park deep — the raider charges, and if
+            // parkAtRifleEdge: idle scenarios park deep - the raider charges, and if
             // he ever dips inside the equipped weapon's range, vanilla auto-attack
             // starts a warmup and SS's OWN warmup auto-switch fires (it swapped the
             // rifle in during an early run and contaminated the negative control).
@@ -413,7 +413,7 @@ namespace BAOTestStaging
         {
             if (phase == 0)
             {
-                // Negative control: toggle OFF, drafted, no order — must stay idle
+                // Negative control: toggle OFF, drafted, no order - must stay idle
                 // on the revolver.
                 BetterAttackOrders.BAOMod.Settings.autoSwitchWhenIdle = false;
                 if (!ConstructDeadlock(out _, parkAtRifleEdge: true))
@@ -470,7 +470,7 @@ namespace BAOTestStaging
             }
         }
 
-        /// <summary>bao3 — the idle redesign's discriminator: with TWO carried guns
+        /// <summary>bao3 - the idle redesign's discriminator: with TWO carried guns
         /// that both reach the target, the idle switch must draw the one Simple
         /// Sidearms' own findBestRangedWeapon prefers (higher DPS), NOT merely the
         /// longest-range one. The bolt-action (36.9, slow single-shot) is longest;
@@ -569,12 +569,12 @@ namespace BAOTestStaging
                 Check("idle-draws-ss-preferred-not-longest", drewSsPick,
                     drewSsPick
                         ? $"idle drew ssPick={drawn.defName} (SS-preferred, higher DPS), not the longest bolt-action"
-                        : $"idle drew {drawn.defName}, not SS's pick {ssPick.def.defName} — pre-redesign longest-range logic");
+                        : $"idle drew {drawn.defName}, not SS's pick {ssPick.def.defName} - pre-redesign longest-range logic");
                 Finish();
             }
         }
 
-        /// <summary>Add a carried sidearm if the pawn lacks it (guns take no stuff —
+        /// <summary>Add a carried sidearm if the pawn lacks it (guns take no stuff -
         /// MakeThing with stuff throws).</summary>
         private ThingWithComps EnsureCarried(string defName)
         {
@@ -598,9 +598,9 @@ namespace BAOTestStaging
             return gun;
         }
 
-        /// <summary>bao4 — forced-state guard parity. Phase 0: the right-click order
+        /// <summary>bao4 - forced-state guard parity. Phase 0: the right-click order
         /// fix must DECLINE when the pawn has a forced weapon (it previously ignored
-        /// forced state entirely — findBestRangedWeapon does not consult it). Phase 1:
+        /// forced state entirely - findBestRangedWeapon does not consult it). Phase 1:
         /// the idle auto-switch must not arm a FORCE-UNARMED pawn (its gate checked
         /// only the two armed forced fields, missing ForcedUnarmed). Both now route
         /// through SS's own IsCurrentWeaponForced.</summary>

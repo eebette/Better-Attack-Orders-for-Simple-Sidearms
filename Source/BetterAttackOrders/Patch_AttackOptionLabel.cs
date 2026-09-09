@@ -9,13 +9,7 @@ using Verse;
 namespace BetterAttackOrders
 {
     /// <summary>
-    /// Honest labeling for the rescued order: the float-menu text names the weapon
-    /// the click will draw — "Fire at raider (using bolt-action rifle)" — exactly
-    /// and only when the order is ours (vanilla orders keep their untouched vanilla
-    /// labels; the rescue only exists where vanilla offered nothing). The label is
-    /// composed in FloatMenuOptionProvider_DraftedAttack, not in the utility the
-    /// action patch hooks, hence the second patch point; RescueLogic keeps the two
-    /// from ever disagreeing.
+    /// Honest labeling for the rescued order.
     /// </summary>
     [HarmonyPatch(typeof(FloatMenuOptionProvider_DraftedAttack), nameof(FloatMenuOptionProvider_DraftedAttack.GetOptionsFor),
                   new[] { typeof(Thing), typeof(FloatMenuContext) })]
@@ -25,9 +19,6 @@ namespace BetterAttackOrders
             new[] { typeof(Thing), typeof(FloatMenuContext) },
             "the rescued attack order will still work but will not name the weapon it draws.");
 
-        // Thin outer / NoInlining inner (failure-doctrine layer 3): the inner resolves
-        // RescueLogic's SS members at first JIT; a rename would throw on every drafted
-        // right-click — the try turns it into a one-time error, vanilla menu intact.
         [HarmonyPostfix]
         public static void Postfix(Thing clickedThing, FloatMenuContext context, ref IEnumerable<FloatMenuOption> __result)
         {
@@ -54,7 +45,7 @@ namespace BetterAttackOrders
                 return;
             }
             string vanillaLabel = "FireAt".Translate(clickedThing.Label, clickedThing);
-            // def label, not instance label — "bolt-action rifle", no quality/stuff noise
+            // def label, not instance label - "bolt-action rifle", no quality/stuff
             string suffix = "BAO_UsingWeapon".Translate(winner.def.label);
             __result = Annotate(__result, vanillaLabel, suffix);
         }
