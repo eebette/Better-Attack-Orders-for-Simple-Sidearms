@@ -1,6 +1,6 @@
 # Draft: SS upstream issue (single-topic, owner files)
 
-**Title:** Ranged attack orders ignore carried sidearms — out-of-range deadlock
+**Title:** Ranged attack orders ignore carried sidearms - out-of-range deadlock
 
 **Body:**
 
@@ -10,7 +10,7 @@ cannot be ordered to attack a target between the two ranges:
 1. Colonist equips a revolver (range 25.9), carries a bolt-action rifle
    (range 36.9) as a remembered sidearm.
 2. Draft, right-click a hostile ~30 cells away.
-3. Float menu: "Cannot fire: out of range" — validated against the equipped
+3. Float menu: "Cannot fire: out of range" - validated against the equipped
    weapon only. No attack job can form, so the aim-warmup auto-switch (the only
    in-combat swap trigger) never gets a chance to run. The player must manually
    swap via the gizmo first.

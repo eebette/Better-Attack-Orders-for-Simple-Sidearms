@@ -5,79 +5,68 @@
 
 ![Better Attack Orders for Simple Sidearms](Media/Badge_BAO.png)
 
-Your pawn is holding a revolver and carrying a sniper rifle — this mod makes the
-attack order understand that.
+RimWorld mod that extends a pawn's target scanning to consider targets within
+its [Simple Sidearms](https://github.com/PeteTimesSix/SimpleSidearms) sidearms' ranges.
 
 <!-- DEMO GIF: out-of-range order swaps to the rifle and fires (Media/, at publish) -->
 
-- [Features](#features)
-- [Development](#development)
-- [Building](#building)
-- [Testing](#testing)
-- [Thanks](#thanks)
-- [License](#license)
-
-NOTE: This mod stores nothing in your save — safe to add or remove at any time.
-
 ## Features
 
-**The fix**
+- Ranged attack orders consider remembered sidearms.
+- Idle pawn target scanning considers remembered sidearms.
 
-- Vanilla validates ranged attack orders against the *equipped* weapon only: a
-  pawn with a short-range weapon in hand and a longer-ranged sidearm in
-  inventory gets "Cannot fire: out of range" — and because no attack job can
-  form, Simple Sidearms' auto-switch (which only runs during aim warmup) never
-  gets its chance. The order is deadlocked.
-- With this mod, the fire order considers **every weapon the pawn carries**. If
-  only a carried sidearm can reach the target, issuing the order swaps to it
-  and fires. No new buttons — the existing order just works.
-- Honest labeling: the rescued order reads **"Fire at X (using bolt-action
-  rifle)"** — you see which gun comes out before you click. Orders that work
-  vanilla keep their untouched vanilla label; the annotation appears exactly
-  and only where vanilla offered nothing at all.
+## Load order
 
-**Idle auto-switch** *(toggleable, on by default)*
+> Harmony → Simple Sidearms → this mod.
 
-- The autonomous sibling of the order fix: a drafted pawn standing guard
-  auto-attacks only what its *equipped* weapon can reach — same blindness, no
-  right-click involved. With this on, a pawn with nothing in range of the
-  equipped weapon draws a carried weapon that CAN reach a target, then engages
-  normally.
-- Pure idle rescue: never runs while anything is already in equipped range,
-  never touches pawns with a forced weapon, respects hold fire, drafted pawns
-  only — undrafted colonist AI is untouched.
+## My other mods
 
-**Guardrails**
+### The CE + Simple Sidearms suite
 
-- Weapon choice goes through Simple Sidearms' own selection: forced-weapon
-  settings and its skip filters (manual-use / EMP / dangerous) are respected.
-- Only the exact broken case is rescued — a *drafted* pawn whose *equipped*
-  weapon can't hit. Every other refusal (not drafted, incapable of violence,
-  nothing reaches) stands untouched.
+RimWorld compatibility mod making [Combat Extended](https://github.com/CombatExtended-Continued/CombatExtended)
+and [Simple Sidearms](https://github.com/PeteTimesSix/SimpleSidearms) work together and additional modules to create a
+cohesive game experience while using both CE and SS together.
 
-**Combat Extended**
+| Module                                                                                                                                               | What it does                                                         |
+|------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------|
+| [![CE + Simple Sidearms Compatibility Patch](Media/Badge_Patch.png)](https://github.com/eebette/CombatExtended-SimpleSidearms-Compatibility-Patch)   | Core compatibility patch for Combat Extended and Simple Sidearms.    |
+| [![CE + Simple Sidearms Loadouts Module](Media/Badge_Loadouts.png)](https://github.com/eebette/CombatExtended-SimpleSidearms-Compatibility-Loadouts) | Syncs loadouts between Combat Extended and Simple Sidearms.          |
+| [![Compatibility Module - Tactics](Media/Badge_Tactics.png)](https://github.com/eebette/CombatExtended-SimpleSidearms-Compatibility-Tactics)         | Sensible tweaks to nonsense pawn behavior when CE + SS run together. |
 
-- No CE dependency; works identically with or without it. With the
-  [CE+SS Compatibility Patch](https://github.com/eebette/CombatExtended-SimpleSidearms-Compatibility-Patch)
-  installed, weapon choice automatically becomes CE-aware (ammo state, CE
-  ballistics) — zero configuration, zero coupling.
+### Standalone
 
-## Development
+| Mod                                                                                                                                     | What it does                                                                                                                    |
+|-----------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
+| [![Loadout Quality for Combat Extended](Media/Badge_LQ.png)](https://github.com/eebette/Loadout-Quality-for-Combat-Extended)            | Pawns will upgrade their held guns when a higher-quality copy is available.                                                     |
+| [![Universal Patch for More Materials](Media/Badge_UPMM.png)](https://github.com/eebette/Universal-Patch-for-More-Materials)            | Adds materials from [More Materials](https://steamcommunity.com/sharedfiles/filedetails/?id=3055040889) to non-vanilla recipes. |
 
-The deadlock exists in pure vanilla Simple Sidearms; this mod is a standalone
-interim fix and retires if it ever lands upstream (single-topic issue draft:
-[`docs/UPSTREAM_ISSUE.md`](docs/UPSTREAM_ISSUE.md)). Implementation is three
-Harmony postfixes — the order fix on `FloatMenuUtility.GetRangedAttackAction`,
-its honest label on `FloatMenuOptionProvider_DraftedAttack.GetOptionsFor`, and
-the idle auto-switch on `JobDriver_Wait.CheckForAutoAttack` — all sharing one
-selection path (`RescueLogic`); design decisions and provenance live in
-[`docs/DESIGN.md`](docs/DESIGN.md). Simple Sidearms is a
-build-time reference only — it ships no license, so no SS code is copied or
-redistributed.
+## FAQ
 
-Releases are manual local builds with the DLL committed in `Assemblies/` — the
-compile reference lives in the local Steam Workshop folder, so CI cannot build
-this repo. Release checklist: [`RELEASING.md`](RELEASING.md).
+**CE compatible?**
+
+Yup!
+
+**Can I add or remove it mid-save?**
+
+Yep.
+
+**Does it change balance?**
+
+Simplifies/automates aspects of combat management.
+
+**AI?**
+
+This mod was engineered with the help of an AI Coding Assistant (Claude Code, Fable 5, Max effort). The amount of
+researching and deep-diving the compatibility interfaces of mods that it patches would have been insurmountable without
+it.
+
+Development followed a standard process driven and scrutinized by me (the real human person writing this):
+explore, design, build, test, fix, review, scrutinize, test again over many rounds.
+
+I have manually reviewed and verified all code in this mod.
+
+I ask that if you have unconstructive feedback regarding the usage of AI while developing this mod, that it remains
+outside of this community space. Thank you.
 
 ## Building
 
@@ -87,35 +76,36 @@ Requires the .NET SDK and a Steam Workshop subscription to Simple Sidearms:
 dotnet build Source/BetterAttackOrders/BetterAttackOrders.csproj -c Release
 ```
 
-References the workshop DLL at
-`~/.local/share/Steam/steamapps/workshop/content/294100/927155256/` (override
-with `-p:RimWorldWorkshopDir=...`), compiles against
-[Krafs.Rimworld.Ref](https://www.nuget.org/packages/Krafs.Rimworld.Ref) 1.6,
-and uses [Krafs.Publicizer](https://github.com/krafs/Publicizer) for Simple
-Sidearms internals. Output lands in `Assemblies/`.
+References the versioned SimpleSidearms 1.6 DLL at
+`~/.local/share/Steam/steamapps/workshop/content/294100/927155256/v1.6/Assemblies/SimpleSidearms.dll` (override the
+workshop root with `-p:RimWorldWorkshopDir=...`), compiles against
+[Krafs.Rimworld.Ref](https://www.nuget.org/packages/Krafs.Rimworld.Ref) 1.6, and
+uses [Krafs.Publicizer](https://github.com/krafs/Publicizer) for Simple Sidearms internals. Output lands in
+`Assemblies/`.
 
 ## Testing
 
 Automated end-to-end tests run in this repo's own **vanilla-only profile**
-(Core + Harmony + Simple Sidearms + this mod — no Combat Extended, which is the
-point):
+(Core + Harmony + Simple Sidearms + this mod - no Combat Extended, which is the point):
 
 ```bash
-./test/run-bao-stage.sh     # build + stage the deadlock save; quit after the letter
-./test/run-bao-assert.sh    # load it, assert the fix, write test-results-bao1.json
+./test/run-bao-stage.sh          # build + stage the test saves; quit after the letter
+./test/run-bao-assert.sh bao1    # load + assert one scenario, write test-results-bao1.json
 ```
 
-The runner constructs the deadlock (revolver equipped, bolt-action carried,
-target parked between the two ranges), verifies the order exists where vanilla
-returns null, and confirms the swap-and-attack. Details and recorded passes:
-[`TESTPLAN.md`](TESTPLAN.md).
+Four scenarios (pass the name to `run-bao-assert.sh`):
+
+- **bao1** - the order fix: revolver equipped, bolt-action carried, target parked between the two ranges; the order
+  exists where vanilla returns null, and swaps-and-fires.
+- **bao2** - the idle auto-switch stays off when its toggle is off.
+- **bao3** - the idle switch draws Simple Sidearms' higher-DPS pick, not merely the longest-range gun.
+- **bao4** - a force-unarmed pawn is left alone.
+
+Details and recorded passes: [`TESTPLAN.md`](TESTPLAN.md).
 
 ## Thanks
 
 - **PeteTimesSix** for [Simple Sidearms](https://github.com/PeteTimesSix/SimpleSidearms).
-- The **Combat Extended team** — this fix was found while building the
-  [CE+SS compatibility suite](https://github.com/eebette/CombatExtended-SimpleSidearms-Compatibility-Patch),
-  where CE's larger range spreads make the deadlock constant.
 
 ## License
 

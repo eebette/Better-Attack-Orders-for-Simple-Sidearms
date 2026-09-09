@@ -1,9 +1,9 @@
-# Design brief — Better Attack Orders for Simple Sidearms
+# Design brief - Better Attack Orders for Simple Sidearms
 
 (Original project brief, kept as maintainer documentation; the README is the
 product page.)
 
-**Status: BUILT and machine-verified 2026-08-18** — single Harmony postfix on
+**Status: BUILT and machine-verified 2026-08-18** - single Harmony postfix on
 `FloatMenuUtility.GetRangedAttackAction`, green end-to-end pass on a
 vanilla-only modlist (see TESTPLAN.md). Remaining: owner feel-pass, upstream
 issue filing (draft in `docs/UPSTREAM_ISSUE.md`), demo GIF, publish.
@@ -12,7 +12,7 @@ issue filing (draft in `docs/UPSTREAM_ISSUE.md`), demo GIF, publish.
 
 Fix a vanilla Simple Sidearms deadlock: SS's only in-combat weapon-swap trigger
 runs during aim warmup, which requires an attack job *with the currently equipped
-weapon* — so a pawn holding a shotgun with a sniper rifle in inventory **cannot
+weapon* - so a pawn holding a shotgun with a sniper rifle in inventory **cannot
 even be ordered** to attack a distant target. The float menu says "Out of range"
 (computed against the equipped weapon), no job forms, no warmup happens, the swap
 logic never runs. The player must manually switch via the SS gizmo first.
@@ -23,7 +23,7 @@ weapons**; if the order is only satisfiable by a different carried weapon, swap
 
 **Mechanism settled (owner, 2026-08-18): SINGLE-OPTION repair.** The existing
 "Fire at X" order simply appears where it used to be missing and auto-swaps to
-the capable weapon via SS's own selection — NO per-weapon "attack with <weapon>"
+the capable weapon via SS's own selection - NO per-weapon "attack with <weapon>"
 float-menu entries (new UI surface, a convention SS never uses; fails the
 ownership test). The name stays "Better Attack Orders" because the player-visible
 outcome is the existing order working, not a new order type. Explicit per-weapon
@@ -33,8 +33,8 @@ choosing wrong.
 ## Scope and provenance
 
 - Descoped 2026-08-18 from the CE+SS suite's Tactics module by the owner's seam
-  test: the deadlock exists in **pure vanilla SS** — no Combat Extended
-  involvement — so it is a standalone SS fix, not suite scope. History and the
+  test: the deadlock exists in **pure vanilla SS** - no Combat Extended
+  involvement - so it is a standalone SS fix, not suite scope. History and the
   original spec live in the Tactics repo's README (feature 2).
 - **Upstream first**: file a single-topic issue on
   https://github.com/PeteTimesSix/SimpleSidearms with the repro before/alongside
@@ -47,14 +47,14 @@ choosing wrong.
 
 - Dependencies: **Harmony + Simple Sidearms only.** No CE, no suite mods.
 - Free composition, zero coupling: the fix calls SS's own
-  `GettersFilters.findBestRangedWeapon(pawn, target)` — when the CE+SS suite is
+  `GettersFilters.findBestRangedWeapon(pawn, target)` - when the CE+SS suite is
   installed, the core patch's Harmony patches make that call CE-aware (ammo,
   CE DPS) automatically. Do not special-case CE here.
-- Swap only on an explicit player attack order — this changes when a pawn *can be
+- Swap only on an explicit player attack order - this changes when a pawn *can be
   ordered*, never who it targets (no target choice, no autonomous behavior).
 - Respect SS state: forced-weapon settings, skip flags (manual-use/EMP/dangerous
-  filtering) via SS's own selection call — never reimplement its filters.
-- Licensing: SS has NO published license — behavioral reference only, never copy
+  filtering) via SS's own selection call - never reimplement its filters.
+- Licensing: SS has NO published license - behavioral reference only, never copy
   its code. This mod is MIT.
 
 ## Technical context
@@ -64,7 +64,7 @@ choosing wrong.
   `CompSidearmMemory`. Source: https://github.com/PeteTimesSix/SimpleSidearms
   (1.6 branch `v1.6/`).
 - **Main unknown (research first): RimWorld 1.6 float-menu architecture.** 1.6
-  reworked float menus into option-provider classes — find where the ranged
+  reworked float menus into option-provider classes - find where the ranged
   attack option's range validation lives (vanilla `FloatMenuOptionProvider` for
   drafted attack orders) before choosing the patch point. The patch likely
   either relaxes the range check to "any carried weapon reaches" and prepends a
@@ -87,7 +87,7 @@ Reuse the suite's harness pattern (CLI-arg-gated staging GameComponent +
 assert runner writing JSON; see the compat patch repo's `test/`). Scenario:
 pawn with short-range primary + long-range sidearm, target beyond primary's
 range but within sidearm's; assert the order is issuable and the pawn swaps and
-fires. Must ALSO pass with vanilla-only modlist (Harmony + SS + this) — that's
+fires. Must ALSO pass with vanilla-only modlist (Harmony + SS + this) - that's
 the point.
 
 - packageId: `eebette.BetterAttackOrders`
