@@ -23,9 +23,9 @@ its [Simple Sidearms](https://github.com/PeteTimesSix/SimpleSidearms) sidearms' 
 
 ### The CE + Simple Sidearms suite
 
-RimWorld compatibility mod making [Combat Extended](https://github.com/CombatExtended-Continued/CombatExtended)
-and [Simple Sidearms](https://github.com/PeteTimesSix/SimpleSidearms) work together and additional modules to create a
-cohesive game experience while using both CE and SS together.
+![CE + Simple Sidearms Compatibility Patch](Media/Badge_Suite.png)
+
+Mods that make Combat Extended and Simple Sidearms run together smoothly.
 
 | Module                                                                                                                                               | What it does                                                         |
 |------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------|
