@@ -27,18 +27,20 @@ its [Simple Sidearms](https://github.com/PeteTimesSix/SimpleSidearms) sidearms' 
 
 Mods that make Combat Extended and Simple Sidearms run together smoothly.
 
-| Module                                                                                                                                               | What it does                                                         |
-|------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------|
-| <a href="https://github.com/eebette/CombatExtended-SimpleSidearms-Compatibility-Patch"><img src="Media/Badge_Patch.png" width="300" alt="CE + Simple Sidearms Compatibility Patch"></a>   | Core compatibility patch for Combat Extended and Simple Sidearms.    |
-| <a href="https://github.com/eebette/CombatExtended-SimpleSidearms-Compatibility-Loadouts"><img src="Media/Badge_Loadouts.png" width="300" alt="CE + Simple Sidearms Loadouts Module"></a> | Syncs loadouts between Combat Extended and Simple Sidearms.          |
-| <a href="https://github.com/eebette/CombatExtended-SimpleSidearms-Compatibility-Tactics"><img src="Media/Badge_Tactics.png" width="300" alt="Compatibility Module - Tactics"></a>         | Sensible tweaks to nonsense pawn behavior when CE + SS run together. |
+<table>
+<tr><th width="300">Module</th><th width="540">What it does</th></tr>
+<tr><td width="300"><a href="https://github.com/eebette/CombatExtended-SimpleSidearms-Compatibility-Patch"><img src="Media/Badge_Patch.png" width="300" alt="CE + Simple Sidearms Compatibility Patch"></a></td><td width="540">Core compatibility patch for Combat Extended and Simple Sidearms.</td></tr>
+<tr><td width="300"><a href="https://github.com/eebette/CombatExtended-SimpleSidearms-Compatibility-Loadouts"><img src="Media/Badge_Loadouts.png" width="300" alt="CE + Simple Sidearms Loadouts Module"></a></td><td width="540">Syncs loadouts between Combat Extended and Simple Sidearms.</td></tr>
+<tr><td width="300"><a href="https://github.com/eebette/CombatExtended-SimpleSidearms-Compatibility-Tactics"><img src="Media/Badge_Tactics.png" width="300" alt="Compatibility Module - Tactics"></a></td><td width="540">Sensible tweaks to nonsense pawn behavior when CE + SS run together.</td></tr>
+</table>
 
 ### Standalone
 
-| Mod                                                                                                                                     | What it does                                                                                                                    |
-|-----------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
-| <a href="https://github.com/eebette/Pawns-Optimize-Weapon-Quality"><img src="Media/Badge_POWQ.png" width="300" alt="Pawns Optimize Weapon Quality"></a>            | Pawns will upgrade their held guns when a higher-quality copy is available.                                                     |
-| <a href="https://github.com/eebette/Universal-Patch-for-More-Materials"><img src="Media/Badge_UPMM.png" width="300" alt="Universal Patch for More Materials"></a>            | Adds materials from [More Materials](https://steamcommunity.com/sharedfiles/filedetails/?id=3055040889) to non-vanilla recipes. |
+<table>
+<tr><th width="300">Mod</th><th width="540">What it does</th></tr>
+<tr><td width="300"><a href="https://github.com/eebette/Pawns-Optimize-Weapon-Quality"><img src="Media/Badge_POWQ.png" width="300" alt="Pawns Optimize Weapon Quality"></a></td><td width="540">Pawns will upgrade their held guns when a higher-quality copy is available.</td></tr>
+<tr><td width="300"><a href="https://github.com/eebette/Universal-Patch-for-More-Materials"><img src="Media/Badge_UPMM.png" width="300" alt="Universal Patch for More Materials"></a></td><td width="540">Adds materials from <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3055040889">More Materials</a> to non-vanilla recipes.</td></tr>
+</table>
 
 ## FAQ
 
