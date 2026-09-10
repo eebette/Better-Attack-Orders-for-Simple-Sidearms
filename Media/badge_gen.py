@@ -37,6 +37,16 @@ def pistol(d, ox, oy, s, flip=False):
     d.polygon(P([(25.5, 19), (27.5, 19), (27.5, 23.5), (25.5, 22.5)]), fill=WHITE)
 
 
+def draw_row(d, text, font, cx, y, target_w, fill):
+    """Draw text tracked (letter-spaced) to span target_w, centered on cx."""
+    natural = d.textlength(text, font=font)
+    gap = (target_w - natural) / (len(text) - 1) if len(text) > 1 else 0
+    x = cx - target_w / 2
+    for ch in text:
+        d.text((x, y), ch, font=font, fill=fill)
+        x += d.textlength(ch, font=font) + gap
+
+
 def render_badge():
     S = 4
     W, H = 300 * S, 100 * S
@@ -64,7 +74,7 @@ def render_badge():
     t1 = "BETTER ATTACK ORDERS"
     w1 = d.textlength(t1, font=f1)
     d.text((CX - w1 / 2, 33 * S), t1, font=f1, fill=WHITE)
-    t2 = "for SIMPLE SIDEARMS"
+    t2 = "FOR SIMPLE SIDEARMS"
     K = 1.6 * S
     w2 = sum(d.textlength(c, font=f2) + K for c in t2) - K
     x = CX - w2 / 2
@@ -83,20 +93,22 @@ def render_preview():
     cx, cy, r = 256 * P, 190 * P, 140 * P
     d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=BLACK, outline=VIOLET, width=8 * P)
 
-    # the deadlock pair: one in hand, one waiting
-    pistol(d, (256 - 95) * P, 120 * P, 3.1 * P)
-    pistol(d, (256 - 60) * P, 225 * P, 1.9 * P, flip=True)
+    # the deadlock pair: one in hand (big), one waiting (small) - clearly separated
+    pistol(d, 166 * P, 94 * P, 3.0 * P)
+    pistol(d, 200 * P, 224 * P, 1.85 * P, flip=True)
 
-    f1 = ImageFont.truetype(FONT, 36 * P)
-    f2 = ImageFont.truetype(FONT, 30 * P)
-    f3 = ImageFont.truetype(FONT, 20 * P)
-    for text, font, y, color in [
-        ("BETTER ATTACK ORDERS", f1, 362 * P, WHITE),
-        ("for SIMPLE SIDEARMS", f2, 406 * P, WHITE),
-        ("EVERY CARRIED WEAPON COUNTS", f3, 456 * P, VIOLET),
-    ]:
-        w = d.textlength(text, font=font)
-        d.text(((W - w) / 2, y), text, font=font, fill=color)
+    def fitp(texts, max_size, max_w):
+        s = int(max_size)
+        while s > 10 and max(d.textlength(t, font=ImageFont.truetype(FONT, s)) for t in texts) > max_w:
+            s -= 1
+        return ImageFont.truetype(FONT, s)
+    line1, line2 = "BETTER ATTACK ORDERS", "FOR SIMPLE SIDEARMS"
+    ftitle = fitp([line1, line2], 42 * P, 470 * P)
+    plh = sum(ftitle.getmetrics())
+    ytop = 367 * P
+    ptarget = max(d.textlength(line1, font=ftitle), d.textlength(line2, font=ftitle))
+    draw_row(d, line1, ftitle, W / 2, ytop, ptarget, WHITE)
+    draw_row(d, line2, ftitle, W / 2, ytop + plh, ptarget, VIOLET)
     img.resize((512, 512), Image.LANCZOS).save(os.path.join(HERE, "..", "About", "Preview.png"))
     print("wrote About/Preview.png")
 
