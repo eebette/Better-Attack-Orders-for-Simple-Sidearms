@@ -3,7 +3,7 @@
 
 Same geometry system as the CE+SS suite badges (300x100 circle + full-width bar
 + ring knockout; 512 preview) so the family reads as one set. Identity: VIOLET
-accent - deliberately far from teal (Loadout Quality), amber (Loadouts), olive
+accent - deliberately far from teal (Pawns Optimize Weapon Quality), amber (Loadouts), olive
 (Patch) and red (Tactics); steel blue was tried first and read as a washed-out
 teal. Art is self-drawn pistols, never CE-derived: this is a Simple Sidearms
 mod with no CE dependency.
