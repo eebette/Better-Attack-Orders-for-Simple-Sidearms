@@ -37,16 +37,6 @@ def pistol(d, ox, oy, s, flip=False):
     d.polygon(P([(25.5, 19), (27.5, 19), (27.5, 23.5), (25.5, 22.5)]), fill=WHITE)
 
 
-def draw_row(d, text, font, cx, y, target_w, fill):
-    """Draw text tracked (letter-spaced) to span target_w, centered on cx."""
-    natural = d.textlength(text, font=font)
-    gap = (target_w - natural) / (len(text) - 1) if len(text) > 1 else 0
-    x = cx - target_w / 2
-    for ch in text:
-        d.text((x, y), ch, font=font, fill=fill)
-        x += d.textlength(ch, font=font) + gap
-
-
 def render_badge():
     S = 4
     W, H = 300 * S, 100 * S
@@ -106,9 +96,9 @@ def render_preview():
     ftitle = fitp([line1, line2], 42 * P, 470 * P)
     plh = sum(ftitle.getmetrics())
     ytop = 367 * P
-    ptarget = max(d.textlength(line1, font=ftitle), d.textlength(line2, font=ftitle))
-    draw_row(d, line1, ftitle, W / 2, ytop, ptarget, WHITE)
-    draw_row(d, line2, ftitle, W / 2, ytop + plh, ptarget, VIOLET)
+    for text, y, color in [(line1, ytop, WHITE), (line2, ytop + plh, VIOLET)]:
+        w = d.textlength(text, font=ftitle)
+        d.text(((W - w) / 2, y), text, font=ftitle, fill=color)
     img.resize((512, 512), Image.LANCZOS).save(os.path.join(HERE, "..", "About", "Preview.png"))
     print("wrote About/Preview.png")
 
