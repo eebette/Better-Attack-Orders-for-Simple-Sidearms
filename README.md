@@ -39,7 +39,7 @@ Mods that make Combat Extended and Simple Sidearms run together smoothly.
 <table>
 <tr><th width="300">Mod</th><th width="540">What it does</th></tr>
 <tr><td width="300"><a href="https://github.com/eebette/Pawns-Optimize-Weapon-Quality"><img src="Media/Badge_POWQ.png" width="300" alt="Pawns Optimize Weapon Quality"></a></td><td width="540">Pawns will upgrade their held guns when a higher-quality copy is available.</td></tr>
-<tr><td width="300"><a href="https://github.com/eebette/More-Mod-Patches-for-Expanded-Materials-Metals"><img src="Media/Badge_MMP.png" width="300" alt="Expanded Materials - Metals: Mod Patches"></a></td><td width="540">Extends <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3333419387">Expanded Materials - Metals</a> to modded buildings it doesn't cover.</td></tr>
+<tr><td width="300"><a href="https://github.com/eebette/More-Mod-Patches-for-Expanded-Materials-Metals"><img src="Media/Badge_MMP.png" width="300" alt="Expanded Materials - Metals: Mod Patches"></a></td><td width="540">Extends <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=3333419387">Expanded Materials - Metals</a> to support additional mods.</td></tr>
 </table>
 
 ## FAQ
